@@ -163,6 +163,13 @@ async def batch_start(
             "fieldnames": [],
             "rows": [],
             "error": "",
+            "share_status": "idle",
+            "share_done": 0,
+            "share_total": 0,
+            "share_current": "",
+            "share_error": "",
+            "share_csv": b"",
+            "share_csv_name": "links.csv",
         }
 
     def run() -> None:
@@ -218,6 +225,11 @@ def batch_status(job_id: str):
             ]
             if job["status"] == "done"
             else [],
+            "share_status": job.get("share_status") or "idle",
+            "share_done": job.get("share_done") or 0,
+            "share_total": job.get("share_total") or 0,
+            "share_current": job.get("share_current") or "",
+            "share_error": job.get("share_error") or "",
         }
 
 
@@ -256,35 +268,66 @@ def fill_share(fill_id: str):
 
 @app.post("/batch/{job_id}/share")
 def batch_share(job_id: str, body: PackBody):
+    if not store.configured():
+        raise HTTPException(400, store.MISSING)
     with JOBS_LOCK:
         job = JOBS.get(job_id)
         if not job or job["status"] != "done":
             raise HTTPException(404, "ещё не готово")
+        if job.get("share_status") == "running":
+            raise HTTPException(409, "уже заливаем")
         previews = list(job.get("previews") or [])
         rows = list(job.get("rows") or [])
         fieldnames = list(job.get("fieldnames") or [])
         zip_name = job["zip_name"]
-    if not store.configured():
-        raise HTTPException(400, store.MISSING)
-    skip_set = set(body.skip)
-    urls: dict[int, str] = {}
-    try:
-        for i, item in enumerate(previews):
-            if i in skip_set:
-                continue
-            key = f"decks/{job_id}/{item['filename']}"
-            urls[int(item["row_index"])] = store.put_pdf(
-                key, item["pdf"], item["filename"]
+        skip_set = set(body.skip)
+        todo = [p for i, p in enumerate(previews) if i not in skip_set]
+        job["share_status"] = "running"
+        job["share_done"] = 0
+        job["share_total"] = len(todo)
+        job["share_current"] = "начинаем"
+        job["share_error"] = ""
+        job["share_csv"] = b""
+
+    def run() -> None:
+        urls: dict[int, str] = {}
+        try:
+            for n, item in enumerate(todo, start=1):
+                _set_job(job_id, share_current=item.get("name") or item["filename"], share_done=n - 1)
+                key = f"decks/{job_id}/{item['filename']}"
+                urls[int(item["row_index"])] = store.put_pdf(
+                    key, item["pdf"], item["filename"]
+                )
+                _set_job(job_id, share_done=n)
+            csv_name = zip_name.replace(".zip", "-links.csv")
+            if not csv_name.endswith(".csv"):
+                csv_name = "links.csv"
+            _set_job(
+                job_id,
+                share_status="done",
+                share_current="готово",
+                share_csv=links_csv(rows, fieldnames, urls),
+                share_csv_name=csv_name,
             )
-    except Exception as e:
-        raise HTTPException(400, str(e)) from e
-    csv_name = zip_name.replace(".zip", "-links.csv")
-    if not csv_name.endswith(".csv"):
-        csv_name = "links.csv"
+        except Exception as e:
+            _set_job(job_id, share_status="error", share_error=str(e), share_current="")
+
+    threading.Thread(target=run, daemon=True).start()
+    return JSONResponse({"ok": True, "total": len(todo)})
+
+
+@app.get("/batch/{job_id}/share.csv")
+def batch_share_csv(job_id: str):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if not job or job.get("share_status") != "done" or not job.get("share_csv"):
+            raise HTTPException(404, "CSV ещё не готово")
+        data = job["share_csv"]
+        name = job.get("share_csv_name") or "links.csv"
     return Response(
-        links_csv(rows, fieldnames, urls),
+        data,
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": _disposition(csv_name)},
+        headers={"Content-Disposition": _disposition(name)},
     )
 
 

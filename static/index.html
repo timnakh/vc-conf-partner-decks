@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Презентации для партнёров</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/static/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -346,24 +348,60 @@
     document.getElementById("batch-share").addEventListener("click", async () => {
       if (!batchJob) return;
       const err = document.getElementById("batch-err");
+      const ok = document.getElementById("batch-ok");
       const btn = document.getElementById("batch-share");
+      const pack = document.getElementById("batch-download");
+      const prog = document.getElementById("batch-progress");
+      const bar = document.getElementById("batch-bar");
+      const label = document.getElementById("batch-label");
       err.textContent = "";
       btn.disabled = true;
+      pack.disabled = true;
+      prog.classList.add("on");
+      bar.style.width = "4%";
+      label.textContent = "Заливаем PDF…";
       try {
-        const dl = await fetch("/batch/" + batchJob + "/share", {
+        const started = await fetch("/batch/" + batchJob + "/share", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ skip: skipped() }),
         });
-        if (!dl.ok) {
-          err.textContent = await errorText(dl);
+        if (!started.ok) {
+          err.textContent = await errorText(started);
           return;
         }
-        downloadBlob(await dl.blob(), filenameFrom(dl, "links.csv"));
+        for (;;) {
+          await new Promise((r) => setTimeout(r, 400));
+          const st = await fetch("/batch/" + batchJob);
+          const job = await st.json();
+          const total = job.share_total || 0;
+          const done = job.share_done || 0;
+          bar.style.width = (total ? Math.max(4, Math.round((done / total) * 100)) : 4) + "%";
+          label.textContent = total
+            ? `${done} из ${total} — ${job.share_current || "заливаем"}`
+            : (job.share_current || "заливаем");
+          if (job.share_status === "error") {
+            err.textContent = job.share_error || "Не получилось залить";
+            return;
+          }
+          if (job.share_status === "done") {
+            const dl = await fetch("/batch/" + batchJob + "/share.csv");
+            if (!dl.ok) {
+              err.textContent = await errorText(dl);
+              return;
+            }
+            downloadBlob(await dl.blob(), filenameFrom(dl, "links.csv"));
+            ok.textContent = "CSV со ссылками скачан.";
+            bar.style.width = "100%";
+            label.textContent = "Готово";
+            return;
+          }
+        }
       } catch (ex) {
         err.textContent = ex.message;
       } finally {
         btn.disabled = false;
+        pack.disabled = false;
       }
     });
 
