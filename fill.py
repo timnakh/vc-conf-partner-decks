@@ -31,11 +31,14 @@ DEFAULT_NAME_PATTERN = "VC Conf 2027 — {name}.pdf"
 
 
 def ensure_inter_installed() -> None:
-    USER_FONTS.mkdir(parents=True, exist_ok=True)
-    for src in FONT_FILES.glob("Inter-*.otf"):
-        dest = USER_FONTS / src.name
-        if not dest.exists() or dest.stat().st_size != src.stat().st_size:
-            shutil.copy2(src, dest)
+    try:
+        USER_FONTS.mkdir(parents=True, exist_ok=True)
+        for src in FONT_FILES.glob("Inter-*.otf"):
+            dest = USER_FONTS / src.name
+            if not dest.exists() or dest.stat().st_size != src.stat().st_size:
+                shutil.copy2(src, dest)
+    except OSError:
+        pass
 
 
 ensure_inter_installed()
