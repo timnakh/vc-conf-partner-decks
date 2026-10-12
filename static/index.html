@@ -207,6 +207,18 @@
       return match ? match[1] : fallback;
     }
 
+    async function errorText(res) {
+      const t = await res.text();
+      if (res.status === 502 || res.status === 503 || /^\s*</.test(t)) {
+        return "Сервер не ответил. Обнови страницу и собери ещё раз.";
+      }
+      try {
+        const j = JSON.parse(t);
+        if (j && j.detail) return typeof j.detail === "string" ? j.detail : t;
+      } catch (e) { /* plain text */ }
+      return t;
+    }
+
     function downloadBlob(blob, filename) {
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -220,7 +232,7 @@
       if (!oneId) return;
       const res = await fetch("/fill/" + oneId + "/download");
       if (!res.ok) {
-        document.getElementById("one-err").textContent = await res.text();
+        document.getElementById("one-err").textContent = await errorText(res);
         return;
       }
       downloadBlob(await res.blob(), filenameFrom(res, "partner.pdf"));
@@ -234,12 +246,11 @@
       btn.disabled = true;
       try {
         const res = await fetch("/fill/" + oneId + "/share", { method: "POST" });
-        const text = await res.text();
         if (!res.ok) {
-          err.textContent = text;
+          err.textContent = await errorText(res);
           return;
         }
-        const data = JSON.parse(text);
+        const data = await res.json();
         const box = document.getElementById("one-link-box");
         const input = document.getElementById("one-link");
         input.value = data.url;
@@ -269,7 +280,7 @@
       try {
         const res = await fetch("/fill", { method: "POST", body: withTemplate(form) });
         if (!res.ok) {
-          err.textContent = await res.text();
+          err.textContent = await errorText(res);
           return;
         }
         const data = await res.json();
@@ -326,7 +337,7 @@
         body: JSON.stringify({ skip }),
       });
       if (!dl.ok) {
-        document.getElementById("batch-err").textContent = await dl.text();
+        document.getElementById("batch-err").textContent = await errorText(dl);
         return;
       }
       downloadBlob(await dl.blob(), filenameFrom(dl, "presentations.zip"));
@@ -345,7 +356,7 @@
           body: JSON.stringify({ skip: skipped() }),
         });
         if (!dl.ok) {
-          err.textContent = await dl.text();
+          err.textContent = await errorText(dl);
           return;
         }
         downloadBlob(await dl.blob(), filenameFrom(dl, "links.csv"));
@@ -376,7 +387,7 @@
       try {
         const started = await fetch("/batch/start", { method: "POST", body: withTemplate(form) });
         if (!started.ok) {
-          err.textContent = await started.text();
+          err.textContent = await errorText(started);
           return;
         }
         const { job_id } = await started.json();

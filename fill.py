@@ -265,18 +265,20 @@ def _overlay(slide: Image.Image, name: str, photo: Path | io.BytesIO | None, spe
     return out.convert("RGB")
 
 
-def _slide_backgrounds(template: Path) -> list[Image.Image]:
-    prs = Presentation(str(template))
-    pages: list[Image.Image] = []
-    for slide in prs.slides:
-        pic = next(
-            (s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE),
-            None,
-        )
-        if pic is None:
-            raise ValueError("в шаблоне нет картинки слайда")
-        pages.append(Image.open(io.BytesIO(pic.image.blob)).convert("RGB"))
-    return pages
+def _slide_picture(slide) -> Image.Image:
+    pic = next(
+        (s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE),
+        None,
+    )
+    if pic is None:
+        raise ValueError("в шаблоне нет картинки слайда")
+    return Image.open(io.BytesIO(pic.image.blob)).convert("RGB")
+
+
+def _jpeg_bytes(im: Image.Image) -> bytes:
+    buf = io.BytesIO()
+    im.convert("RGB").save(buf, format="JPEG", quality=88, optimize=False)
+    return buf.getvalue()
 
 
 def partner_preview(slide: Image.Image, spec: dict) -> bytes:
@@ -308,18 +310,27 @@ def fill_deck(
     logo: Path | io.BytesIO | None = None,
     template: Path | None = None,
 ) -> tuple[bytes, bytes]:
+    import img2pdf
+
     spec = load_spec()
     company = display_name(company)
     if not company:
         raise ValueError("укажи имя или название компании")
 
-    pages = _slide_backgrounds(template or DEFAULT_TEMPLATE)
-    pages[0] = _overlay(pages[0], company, logo, spec)
-
-    rgb = [p.convert("RGB") for p in pages]
-    buf = io.BytesIO()
-    rgb[0].save(buf, format="PDF", save_all=True, append_images=rgb[1:], resolution=144)
-    return buf.getvalue(), partner_preview(pages[0], spec)
+    prs = Presentation(str(template or DEFAULT_TEMPLATE))
+    jpeg_pages: list[bytes] = []
+    preview = b""
+    try:
+        for i, slide in enumerate(prs.slides):
+            im = _slide_picture(slide)
+            if i == 0:
+                im = _overlay(im, company, logo, spec)
+                preview = partner_preview(im, spec)
+            jpeg_pages.append(_jpeg_bytes(im))
+            im.close()
+    finally:
+        del prs
+    return img2pdf.convert(jpeg_pages), preview
 
 
 def _name_keys(company: str) -> list[str]:
