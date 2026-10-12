@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from urllib.parse import quote
 
-from fill import ascii_filename
+from fill import SAFE_NAME, ascii_filename
 
 KEYS = (
     "S3_ENDPOINT",
@@ -29,6 +29,15 @@ def configured() -> bool:
 
 def public_base() -> str:
     return os.environ.get("S3_PUBLIC_BASE", "").rstrip("/")
+
+
+def object_key(filename: str, folder: str = "decks") -> str:
+    slug = SAFE_NAME.sub("-", (folder or "decks")).strip("-") or "decks"
+    return f"vc-conf-2027/{slug}/{ascii_filename(filename)}"
+
+
+def public_url(key: str) -> str:
+    return public_base() + "/" + quote(key, safe="/-._~")
 
 
 def put_pdf(key: str, data: bytes, filename: str) -> str:
@@ -57,4 +66,4 @@ def put_pdf(key: str, data: bytes, filename: str) -> str:
         ),
         CacheControl="public, max-age=31536000, immutable",
     )
-    return public_base() + "/" + quote(key, safe="/")
+    return public_url(key)

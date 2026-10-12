@@ -101,7 +101,12 @@ async def fill_one(
         template=item["label"],
     )
     fill_id = uuid.uuid4().hex
-    FILLS[fill_id] = {"pdf": data, "filename": filename, "preview": preview}
+    FILLS[fill_id] = {
+        "pdf": data,
+        "filename": filename,
+        "preview": preview,
+        "template_id": template,
+    }
     return JSONResponse(
         {
             "id": fill_id,
@@ -170,6 +175,7 @@ async def batch_start(
             "share_error": "",
             "share_csv": b"",
             "share_csv_name": "links.csv",
+            "template_id": item["id"],
         }
 
     def run() -> None:
@@ -258,7 +264,7 @@ def fill_share(fill_id: str):
         raise HTTPException(404, "превью уже не доступно — собери ещё раз")
     if not store.configured():
         raise HTTPException(400, store.MISSING)
-    key = f"decks/one/{fill_id}/{item['filename']}"
+    key = store.object_key(item["filename"], item.get("template_id") or "decks")
     try:
         url = store.put_pdf(key, item["pdf"], item["filename"])
     except Exception as e:
@@ -280,6 +286,7 @@ def batch_share(job_id: str, body: PackBody):
         rows = list(job.get("rows") or [])
         fieldnames = list(job.get("fieldnames") or [])
         zip_name = job["zip_name"]
+        folder = job.get("template_id") or "decks"
         skip_set = set(body.skip)
         todo = [p for i, p in enumerate(previews) if i not in skip_set]
         job["share_status"] = "running"
@@ -294,7 +301,7 @@ def batch_share(job_id: str, body: PackBody):
         try:
             for n, item in enumerate(todo, start=1):
                 _set_job(job_id, share_current=item.get("name") or item["filename"], share_done=n - 1)
-                key = f"decks/{job_id}/{item['filename']}"
+                key = store.object_key(item["filename"], folder)
                 urls[int(item["row_index"])] = store.put_pdf(
                     key, item["pdf"], item["filename"]
                 )

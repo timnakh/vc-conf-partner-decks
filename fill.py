@@ -541,14 +541,14 @@ def links_csv(
     urls_by_row: dict[int, str],
 ) -> bytes:
     cols = [h for h in fieldnames if h]
-    link_col = "link" if "link" not in cols else "pdf_url"
-    cols = cols + [link_col]
+    if "pdf_url" not in cols:
+        cols.append("pdf_url")
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=cols, extrasaction="ignore")
     w.writeheader()
     for i, row in enumerate(rows):
         out = {k: (row.get(k) or "") for k in fieldnames if k}
-        out[link_col] = urls_by_row.get(i, "")
+        out["pdf_url"] = urls_by_row.get(i, "")
         w.writerow(out)
     return buf.getvalue().encode("utf-8-sig")
 
