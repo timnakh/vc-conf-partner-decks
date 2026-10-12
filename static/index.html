@@ -77,6 +77,13 @@
     .pick { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; margin:0 0 10px; color:var(--ink); }
     .pick input { width:18px; height:18px; accent-color:#b91c1c; }
     code { font-size: 12px; background:#fff7e6; padding:1px 5px; border-radius:4px; }
+    .queue {
+      display:none; margin: 0 0 18px; padding: 12px 14px;
+      background:#fff3e0; border:1px solid #f9d48a; border-radius:12px;
+      color:#92400e; font-size:14px; font-weight:600;
+    }
+    .queue.on { display:block; }
+    body.queued .work { opacity:.55; pointer-events:none; }
     @media (max-width: 720px) {
       .row { grid-template-columns: 1fr; }
       .note { margin-top: 6px; }
@@ -86,6 +93,7 @@
 </head>
 <body>
   <main>
+    <div class="queue" id="queue-banner"></div>
     <p class="eyebrow">Virtual VC Conf 2027</p>
     <h1>Презентации для партнёров</h1>
     <p class="lead">Собери персональный PDF: выбери шаблон, напиши имя. Для компании — сайт или логотип, для человека — фото.</p>
@@ -108,7 +116,7 @@
       </div>
     </section>
 
-    <section>
+    <section class="work">
       <h2>Один партнёр</h2>
       <form id="one">
         <div class="row">
@@ -153,7 +161,7 @@
       </form>
     </section>
 
-    <section>
+    <section class="work">
       <h2>Несколько партнёров сразу</h2>
       <form id="batch">
         <div class="row">
@@ -191,6 +199,25 @@
   </main>
   <script>
     const templateSelect = document.getElementById("template");
+    let queueToken = sessionStorage.getItem("queueToken") || "";
+
+    async function refreshQueue() {
+      try {
+        const q = await fetch("/busy").then((r) => r.json());
+        const mine = q.token && q.token === queueToken;
+        const banner = document.getElementById("queue-banner");
+        if (q.busy && !mine) {
+          banner.textContent = q.message;
+          banner.classList.add("on");
+          document.body.classList.add("queued");
+        } else {
+          banner.classList.remove("on");
+          document.body.classList.remove("queued");
+        }
+      } catch (e) { /* offline */ }
+    }
+    refreshQueue();
+    setInterval(refreshQueue, 2000);
 
     function withTemplate(form) {
       const fd = new FormData(form);
@@ -370,6 +397,11 @@
           err.textContent = await errorText(started);
           return;
         }
+        const startedShare = await started.json();
+        if (startedShare.token) {
+          queueToken = startedShare.token;
+          sessionStorage.setItem("queueToken", queueToken);
+        }
         for (;;) {
           await new Promise((r) => setTimeout(r, 400));
           const st = await fetch("/batch/" + batchJob);
@@ -428,8 +460,13 @@
           err.textContent = await errorText(started);
           return;
         }
-        const { job_id } = await started.json();
+        const startedData = await started.json();
+        const { job_id } = startedData;
         batchJob = job_id;
+        if (startedData.token) {
+          queueToken = startedData.token;
+          sessionStorage.setItem("queueToken", queueToken);
+        }
         for (;;) {
           await new Promise((r) => setTimeout(r, 400));
           const st = await fetch("/batch/" + job_id);

@@ -37,6 +37,89 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 JOBS: dict[str, dict] = {}
 FILLS: dict[str, dict] = {}
 JOBS_LOCK = threading.Lock()
+BUSY_LOCK = threading.Lock()
+BUSY: dict = {
+    "on": False,
+    "kind": "",
+    "done": 0,
+    "total": 0,
+    "token": "",
+}
+
+SEC = {"fill": 7, "share": 5}
+
+
+def _ru_wait(sec: int) -> str:
+    sec = max(0, int(sec))
+    if sec <= 20:
+        return "около 20 секунд"
+    if sec < 50:
+        return "меньше минуты"
+    n = max(1, round(sec / 60))
+    mod10, mod100 = n % 10, n % 100
+    if mod10 == 1 and mod100 != 11:
+        unit = "минуту"
+    elif mod10 in (2, 3, 4) and mod100 not in (12, 13, 14):
+        unit = "минуты"
+    else:
+        unit = "минут"
+    return f"около {n} {unit}"
+
+
+def _busy_snapshot() -> dict:
+    with BUSY_LOCK:
+        if not BUSY["on"]:
+            return {"busy": False, "wait_sec": 0, "message": "", "token": ""}
+        kind = BUSY["kind"]
+        done = int(BUSY["done"] or 0)
+        total = int(BUSY["total"] or 0)
+        left = max(0, total - done)
+        wait = left * SEC.get(kind, 7)
+        if kind == "share":
+            action = "заливает ссылки"
+        else:
+            action = "собирает презентации"
+        if total:
+            msg = (
+                f"Коллега сейчас {action} ({done} из {total}). "
+                f"Подожди {_ru_wait(wait)}."
+            )
+        else:
+            msg = f"Коллега сейчас {action}. Подожди {_ru_wait(max(wait, 20))}."
+        return {
+            "busy": True,
+            "wait_sec": wait,
+            "message": msg,
+            "token": BUSY["token"],
+            "done": done,
+            "total": total,
+            "kind": kind,
+        }
+
+
+def _busy_acquire(kind: str, total: int) -> str | None:
+    with BUSY_LOCK:
+        if BUSY["on"]:
+            return None
+        token = uuid.uuid4().hex
+        BUSY.update(on=True, kind=kind, done=0, total=max(0, int(total)), token=token)
+        return token
+
+
+def _busy_progress(done: int, total: int | None = None) -> None:
+    with BUSY_LOCK:
+        if not BUSY["on"]:
+            return
+        BUSY["done"] = done
+        if total is not None:
+            BUSY["total"] = total
+
+
+def _busy_release(token: str | None = None) -> None:
+    with BUSY_LOCK:
+        if token and BUSY.get("token") and token != BUSY["token"]:
+            return
+        BUSY.update(on=False, kind="", done=0, total=0, token="")
 
 
 class PackBody(BaseModel):
@@ -46,6 +129,11 @@ class PackBody(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     return (STATIC / "index.html").read_text()
+
+
+@app.get("/busy")
+def busy_status():
+    return _busy_snapshot()
 
 
 @app.get("/templates")
@@ -90,10 +178,17 @@ async def fill_one(
             image = fetch_logo(url)
         except Exception as e:
             raise HTTPException(400, str(e)) from e
+    token = _busy_acquire("fill", 1)
+    if not token:
+        raise HTTPException(409, _busy_snapshot()["message"])
     try:
+        _busy_progress(0, 1)
         data, preview = fill_deck(person, logo=image, template=item["path"])
+        _busy_progress(1, 1)
     except Exception as e:
         raise HTTPException(400, str(e)) from e
+    finally:
+        _busy_release(token)
     shown = display_name(person) or person
     filename = render_filename(
         filename_pattern,
@@ -152,6 +247,10 @@ async def batch_start(
     if z is not None and z.filename:
         logos_map = unpack_logo_zip(await z.read())
 
+    approx = max(csv_text.count("\n") - 1, 0)
+    token = _busy_acquire("fill", approx)
+    if not token:
+        raise HTTPException(409, _busy_snapshot()["message"])
     job_id = uuid.uuid4().hex
     zip_name = render_filename(
         filename_pattern, name=item["label"], template=item["label"]
@@ -183,6 +282,7 @@ async def batch_start(
 
             def progress(done, total, name):
                 _set_job(job_id, done=done, total=total, current=name)
+                _busy_progress(done, total)
 
             failed, previews, fieldnames, rows = fill_from_csv(
                 io.StringIO(csv_text),
@@ -203,9 +303,11 @@ async def batch_start(
             )
         except Exception as e:
             _set_job(job_id, status="error", error=str(e), current="")
+        finally:
+            _busy_release(token)
 
     threading.Thread(target=run, daemon=True).start()
-    return JSONResponse({"job_id": job_id})
+    return JSONResponse({"job_id": job_id, "token": token})
 
 
 @app.get("/batch/{job_id}")
@@ -265,10 +367,15 @@ def fill_share(fill_id: str):
     if not store.configured():
         raise HTTPException(400, store.MISSING)
     key = store.object_key(item["filename"], item.get("template_id") or "decks")
+    token = _busy_acquire("share", 1)
+    if not token:
+        raise HTTPException(409, _busy_snapshot()["message"])
     try:
         url = store.put_pdf(key, item["pdf"], item["filename"])
     except Exception as e:
         raise HTTPException(400, str(e)) from e
+    finally:
+        _busy_release(token)
     return {"url": url, "filename": item["filename"]}
 
 
@@ -295,17 +402,24 @@ def batch_share(job_id: str, body: PackBody):
         job["share_current"] = "начинаем"
         job["share_error"] = ""
         job["share_csv"] = b""
+    token = _busy_acquire("share", len(todo))
+    if not token:
+        with JOBS_LOCK:
+            job["share_status"] = "idle"
+        raise HTTPException(409, _busy_snapshot()["message"])
 
     def run() -> None:
         urls: dict[int, str] = {}
         try:
             for n, item in enumerate(todo, start=1):
                 _set_job(job_id, share_current=item.get("name") or item["filename"], share_done=n - 1)
+                _busy_progress(n - 1, len(todo))
                 key = store.object_key(item["filename"], folder)
                 urls[int(item["row_index"])] = store.put_pdf(
                     key, item["pdf"], item["filename"]
                 )
                 _set_job(job_id, share_done=n)
+                _busy_progress(n, len(todo))
             csv_name = zip_name.replace(".zip", "-links.csv")
             if not csv_name.endswith(".csv"):
                 csv_name = "links.csv"
@@ -318,9 +432,11 @@ def batch_share(job_id: str, body: PackBody):
             )
         except Exception as e:
             _set_job(job_id, share_status="error", share_error=str(e), share_current="")
+        finally:
+            _busy_release(token)
 
     threading.Thread(target=run, daemon=True).start()
-    return JSONResponse({"ok": True, "total": len(todo)})
+    return JSONResponse({"ok": True, "total": len(todo), "token": token})
 
 
 @app.get("/batch/{job_id}/share.csv")
