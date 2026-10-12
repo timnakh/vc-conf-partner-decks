@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Презентации для партнёров</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --ink:#0B1220; --muted:#475569; --line:#f1e4c8; --orange:#F9A72A; --bg:#fff7ed; }
+    * { box-sizing: border-box; }
+    body {
+      margin:0;
+      font: 16px/1.45 Inter, ui-sans-serif, system-ui, sans-serif;
+      color:var(--ink);
+      background: linear-gradient(180deg, #fff4d6 0%, #fffaf3 28%, #f4f7ff 100%);
+      min-height: 100vh;
+    }
+    main { max-width: 920px; margin: 48px auto; padding: 0 20px 64px; }
+    .eyebrow { color:var(--orange); font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin:0 0 10px; }
+    h1 { font-size: 36px; letter-spacing:-.03em; margin: 0 0 8px; }
+    p.lead { color:var(--muted); margin: 0 0 28px; max-width: 640px; }
+    section {
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 30px rgba(11,18,32,.04);
+    }
+    h2 { font-size: 18px; margin: 0 0 14px; letter-spacing:-.02em; }
+    .row { display:grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; margin-top: 12px; }
+    label { display:block; font-size:13px; color:var(--muted); margin: 0 0 6px; }
+    input[type=text], input[type=url], select { width:100%; padding:11px 12px; border:1px solid #ead9b3; border-radius:12px; font: inherit; background:#fffef9; }
+    input[type=text]:focus, input[type=url]:focus, select:focus { outline:2px solid rgba(249,167,42,.45); border-color:var(--orange); }
+    input[type=file] { width:100%; }
+    .note { font-size:13px; color:var(--muted); margin: 22px 0 0; line-height:1.4; }
+    button { margin-top: 16px; background:var(--ink); color:#fff; border:0; border-radius:12px; padding:11px 18px; font: 600 15px Inter, sans-serif; cursor:pointer; }
+    button:hover { background:#1a2744; }
+    button:disabled { opacity:.5; cursor:wait; }
+    .err { color:#b91c1c; font-size:14px; margin-top:10px; }
+    .ok { color:#166534; font-size:14px; margin-top:10px; }
+    .progress { display:none; margin-top:14px; }
+    .progress.on { display:block; }
+    .bar { height:8px; background:#f3e6c8; border-radius:99px; overflow:hidden; }
+    .bar > span { display:block; height:100%; width:0; background:var(--orange); transition: width .2s; }
+    .bar.indeterminate > span { width:40%; animation: slide 1s ease-in-out infinite alternate; }
+    @keyframes slide { from { margin-left:0; } to { margin-left:60%; } }
+    .progress .label { font-size:13px; color:var(--muted); margin-top:8px; }
+    .zip-skip { margin-top:12px; padding:12px 14px; background:#fff7e6; border:1px solid #f9d48a; border-radius:12px; color:#92400e; font-size:14px; }
+    .preview-box { display:none; margin-top:18px; }
+    .preview-box.on { display:block; }
+    .preview-box .who { font-weight:700; margin: 0 0 8px; }
+    .preview-box img.hero { width:100%; border-radius:16px; border:1px solid var(--line); background:#fffaf3; display:block; }
+    .ghost { margin-top:0; background:#fff; color:var(--ink); border:1px solid #ead9b3; }
+    .ghost:hover { background:#fff7ed; }
+    .carousel-hint { font-size:13px; color:var(--muted); margin: 0 0 10px; }
+    .carousel {
+      display:flex; gap:14px; overflow-x:auto; scroll-snap-type:x mandatory;
+      scroll-behavior:smooth; padding: 4px 4px 14px; margin: 0 -4px;
+    }
+    .card {
+      flex: 0 0 86%; scroll-snap-align:center;
+      border:1px solid var(--line); border-radius:16px; padding:14px; background:#fffef9;
+    }
+    .card.drop { opacity:.55; box-shadow: inset 0 0 0 2px #b91c1c; }
+    .card img { width:100%; border-radius:12px; display:block; }
+    .card .who { margin: 8px 0 0; }
+    .pick { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; margin:0 0 10px; color:var(--ink); }
+    .pick input { width:18px; height:18px; accent-color:#b91c1c; }
+    code { font-size: 12px; background:#fff7e6; padding:1px 5px; border-radius:4px; }
+    @media (max-width: 720px) {
+      .row { grid-template-columns: 1fr; }
+      .note { margin-top: 6px; }
+      h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Virtual VC Conf 2027</p>
+    <h1>Презентации для партнёров</h1>
+    <p class="lead">Собери персональный PDF: выбери шаблон, напиши имя. Для компании — сайт или логотип, для человека — фото.</p>
+
+    <section>
+      <h2>Шаблон</h2>
+      <div class="row">
+        <div>
+          <label for="template">Какую презентацию отправить</label>
+          <select id="template" name="template"></select>
+        </div>
+        <p class="note">Медиапартнёр, журналист, спикер, хост брейкаута, инвестор на 1:1 и другие роли.</p>
+      </div>
+      <div class="row">
+        <div>
+          <label for="name-pattern">Имя файла</label>
+          <input id="name-pattern" name="filename_pattern" type="text" value="VC Conf 2027 — {name}.pdf" />
+        </div>
+        <p class="note"><code>{name}</code> — компания или человек. <code>{template}</code> — роль, например медиапартнёр. Так и уйдёт партнёру.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Один партнёр</h2>
+      <form id="one">
+        <div class="row">
+          <div>
+            <label for="name">Имя или компания</label>
+            <input id="name" name="name" type="text" required placeholder="Acme Ventures или Jane Doe" />
+          </div>
+          <p class="note">Так напишем на слайде. У компаний сами уберём LLC, Ltd, Inc и текст в скобках.</p>
+        </div>
+        <div class="row">
+          <div>
+            <label for="url">Сайт компании</label>
+            <input id="url" name="url" type="url" placeholder="https://acme.com" />
+          </div>
+          <p class="note">Попробуем скачать иконку сайта. Часто прилетает не логотип или чужая картинка — проверь блок на превью. Надёжнее загрузить файл ниже.</p>
+        </div>
+        <div class="row">
+          <div>
+            <label for="photo">Логотип или фото</label>
+            <input id="photo" name="photo" type="file" accept="image/*" />
+          </div>
+          <p class="note">Так надёжнее. Фото человека — только файлом. Логотип — если не хочешь рисковать автозагрузкой с сайта.</p>
+        </div>
+        <button type="submit">Показать превью</button>
+        <div class="progress" id="one-progress">
+          <div class="bar indeterminate"><span></span></div>
+          <div class="label">Собираем первый слайд…</div>
+        </div>
+        <div class="err" id="one-err"></div>
+        <div class="preview-box" id="one-preview">
+          <p class="who" id="one-preview-name"></p>
+          <img class="hero" id="one-preview-img" alt="Блок партнёра на первом слайде" />
+          <button type="button" id="one-download">Скачать PDF</button>
+        </div>
+      </form>
+    </section>
+
+    <section>
+      <h2>Несколько партнёров сразу</h2>
+      <form id="batch">
+        <div class="row">
+          <div>
+            <label for="csv">Таблица CSV</label>
+            <input id="csv" name="csv_file" type="file" accept=".csv,text/csv" required />
+          </div>
+          <p class="note">Колонка с названием: <code>name</code> или <code>company</code>. Сайт (<code>url</code>) необязателен.</p>
+        </div>
+        <div class="zip-skip">С сайта логотип часто качается криво или вообще чужой. Перед отправкой проверь блок на первом слайде — это на вашей ответственности. Надёжнее zip: файлы как компания в таблице, например <code>Angels Santé.png</code>.</div>
+        <div class="row" id="zip-row">
+          <div>
+            <label for="zip">Архив с логотипами</label>
+            <input id="zip" name="photos_zip" type="file" accept=".zip,application/zip" />
+          </div>
+          <p class="note" id="zip-note">Имя файла = название компании. Колонку <code>photo</code> можно не делать.</p>
+        </div>
+        <button type="submit">Собрать превью</button>
+        <div class="progress" id="batch-progress">
+          <div class="bar"><span id="batch-bar"></span></div>
+          <div class="label" id="batch-label">Готовим…</div>
+        </div>
+        <div class="err" id="batch-err"></div>
+        <div class="ok" id="batch-ok"></div>
+        <div class="preview-box" id="batch-gallery">
+          <p class="carousel-hint" id="gal-hint">Прокрути вбок колёсиком или трекпадом. Галочка — не брать в архив: строка попадёт в needs_review.csv внутри zip.</p>
+          <div class="carousel" id="gal-track"></div>
+          <button type="button" id="batch-download">Скачать выбранные PDF</button>
+        </div>
+      </form>
+    </section>
+  </main>
+  <script>
+    const templateSelect = document.getElementById("template");
+
+    function withTemplate(form) {
+      const fd = new FormData(form);
+      fd.set("template", templateSelect.value);
+      fd.set("filename_pattern", document.getElementById("name-pattern").value);
+      return fd;
+    }
+
+    function filenameFrom(res, fallback) {
+      const disp = res.headers.get("Content-Disposition") || "";
+      const star = disp.match(/filename\*=UTF-8''([^;]+)/i);
+      if (star) {
+        try { return decodeURIComponent(star[1]); } catch (e) { /* keep looking */ }
+      }
+      const match = disp.match(/filename="([^"]+)"/);
+      return match ? match[1] : fallback;
+    }
+
+    function downloadBlob(blob, filename) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    let oneId = "";
+    document.getElementById("one-download").addEventListener("click", async () => {
+      if (!oneId) return;
+      const res = await fetch("/fill/" + oneId + "/download");
+      if (!res.ok) {
+        document.getElementById("one-err").textContent = await res.text();
+        return;
+      }
+      downloadBlob(await res.blob(), filenameFrom(res, "partner.pdf"));
+    });
+
+    document.getElementById("one").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const err = document.getElementById("one-err");
+      const prog = document.getElementById("one-progress");
+      const preview = document.getElementById("one-preview");
+      const btn = form.querySelector("button[type=submit]");
+      err.textContent = "";
+      preview.classList.remove("on");
+      btn.disabled = true;
+      prog.classList.add("on");
+      try {
+        const res = await fetch("/fill", { method: "POST", body: withTemplate(form) });
+        if (!res.ok) {
+          err.textContent = await res.text();
+          return;
+        }
+        const data = await res.json();
+        oneId = data.id;
+        document.getElementById("one-preview-name").textContent = data.name;
+        document.getElementById("one-preview-img").src = data.preview;
+        preview.classList.add("on");
+      } catch (ex) {
+        err.textContent = ex.message;
+      } finally {
+        btn.disabled = false;
+        prog.classList.remove("on");
+      }
+    });
+
+    let batchJob = "";
+    let gallery = [];
+
+    function skipped() {
+      return [...document.querySelectorAll("#gal-track input.drop")].filter((el) => el.checked).map((el) => Number(el.value));
+    }
+
+    function updateHint() {
+      const n = gallery.length;
+      const drop = skipped().length;
+      document.getElementById("gal-hint").textContent =
+        `Прокрути вбок. В архив: ${n - drop} из ${n}.` +
+        (drop ? ` Отмеченные (${drop}) попадут в needs_review.csv внутри zip.` : " Галочка — не брать, строка уйдёт в needs_review.csv в архиве.");
+    }
+
+    document.getElementById("gal-track").addEventListener("wheel", (e) => {
+      const track = e.currentTarget;
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      e.preventDefault();
+      track.scrollLeft += e.deltaY;
+    }, { passive: false });
+
+    document.addEventListener("keydown", (e) => {
+      const track = document.getElementById("gal-track");
+      const box = document.getElementById("batch-gallery");
+      if (!box.classList.contains("on")) return;
+      if (/INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || "")) return;
+      const jump = Math.round(track.clientWidth * 0.9);
+      if (e.key === "ArrowRight") track.scrollBy({ left: jump, behavior: "smooth" });
+      if (e.key === "ArrowLeft") track.scrollBy({ left: -jump, behavior: "smooth" });
+    });
+
+    document.getElementById("batch-download").addEventListener("click", async () => {
+      if (!batchJob) return;
+      const skip = skipped();
+      const dl = await fetch("/batch/" + batchJob + "/pack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skip }),
+      });
+      if (!dl.ok) {
+        document.getElementById("batch-err").textContent = await dl.text();
+        return;
+      }
+      downloadBlob(await dl.blob(), filenameFrom(dl, "presentations.zip"));
+    });
+
+    document.getElementById("batch").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const err = document.getElementById("batch-err");
+      const ok = document.getElementById("batch-ok");
+      const prog = document.getElementById("batch-progress");
+      const bar = document.getElementById("batch-bar");
+      const label = document.getElementById("batch-label");
+      const btn = form.querySelector("button[type=submit]");
+      const galleryBox = document.getElementById("batch-gallery");
+      err.textContent = "";
+      ok.textContent = "";
+      galleryBox.classList.remove("on");
+      btn.disabled = true;
+      prog.classList.add("on");
+      bar.style.width = "4%";
+      label.textContent = "Начинаем…";
+      try {
+        const started = await fetch("/batch/start", { method: "POST", body: withTemplate(form) });
+        if (!started.ok) {
+          err.textContent = await started.text();
+          return;
+        }
+        const { job_id } = await started.json();
+        batchJob = job_id;
+        for (;;) {
+          await new Promise((r) => setTimeout(r, 400));
+          const st = await fetch("/batch/" + job_id);
+          const job = await st.json();
+          const pct = job.total ? Math.max(4, Math.round((job.done / job.total) * 100)) : 4;
+          bar.style.width = pct + "%";
+          label.textContent = job.total
+            ? `${job.done} из ${job.total} — ${job.current}`
+            : job.current;
+          if (job.status === "error") {
+            err.textContent = job.error || "Не получилось собрать";
+            return;
+          }
+          if (job.status === "done") {
+            const nFail = (job.failed || []).length;
+            const nOk = (job.total || 0) - nFail;
+            if (nFail) {
+              err.textContent =
+                `Собрали ${nOk} из ${job.total}. Не вышло (${nFail}): ` +
+                job.failed.map((f) => f.name).join(", ") +
+                ". В архиве лежит файл НЕ_СОБРАЛОСЬ.txt.";
+            } else {
+              ok.textContent = `Готово: ${nOk} презентаций. Прокрути превью, отметь плохие галочкой, потом скачай.`;
+            }
+            gallery = job.previews || [];
+            const track = document.getElementById("gal-track");
+            track.innerHTML = "";
+            gallery.forEach((item) => {
+              const card = document.createElement("article");
+              card.className = "card";
+              const pick = document.createElement("label");
+              pick.className = "pick";
+              const box = document.createElement("input");
+              box.type = "checkbox";
+              box.className = "drop";
+              box.value = String(item.index);
+              box.addEventListener("change", () => {
+                card.classList.toggle("drop", box.checked);
+                updateHint();
+              });
+              pick.appendChild(box);
+              pick.append("Не брать — в CSV");
+              const img = document.createElement("img");
+              img.src = "/batch/" + job_id + "/preview/" + item.index;
+              img.alt = item.name;
+              const who = document.createElement("p");
+              who.className = "who";
+              who.textContent = item.name;
+              card.append(pick, img, who);
+              track.appendChild(card);
+            });
+            if (gallery.length) {
+              galleryBox.classList.add("on");
+              updateHint();
+            }
+            return;
+          }
+        }
+      } catch (ex) {
+        err.textContent = ex.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    fetch("/templates").then(r => r.json()).then(items => {
+      const groups = {};
+      for (const t of items) {
+        (groups[t.group] ||= []).push(t);
+      }
+      for (const [group, list] of Object.entries(groups)) {
+        const og = document.createElement("optgroup");
+        og.label = group;
+        for (const t of list) {
+          const opt = document.createElement("option");
+          opt.value = t.id;
+          opt.textContent = t.label;
+          og.appendChild(opt);
+        }
+        templateSelect.appendChild(og);
+      }
+    });
+  </script>
+</body>
+</html>

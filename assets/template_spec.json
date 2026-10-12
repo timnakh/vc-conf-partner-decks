@@ -1,0 +1,86 @@
+{
+  "template": "VC_Conf_MP_deck_template.pptx",
+  "slide_size": {
+    "px": [
+      1920,
+      1080
+    ],
+    "inches": [
+      20,
+      11.25
+    ],
+    "note": "Backgrounds are 3840x2160 JPEGs (2x). Coordinates below are in 1920x1080 px; multiply by 2 for the background image."
+  },
+  "slide": 1,
+  "fields": {
+    "partner_logo": {
+      "pptx_shape_name": "partner_logo",
+      "type": "rounded square frame (white fill, orange ring)",
+      "box_px": {
+        "x": 1561,
+        "y": 214,
+        "w": 99,
+        "h": 99
+      },
+      "corner_radius_px": 22,
+      "ring": {
+        "color": "#F9A72A",
+        "width_px": 4
+      },
+      "placeholder_text": "LOGO (clear it when inserting the logo)",
+      "logo_inner_box_px": {
+        "x": 1575,
+        "y": 228,
+        "w": 71,
+        "h": 71
+      },
+      "logo_rule": "fit (contain) the logo into logo_inner_box, keep aspect ratio, center; square/round logos look best; for a wide wordmark use the icon if available"
+    },
+    "partner_label": {
+      "pptx_shape_name": "partner_label",
+      "static_text": "Prepared for",
+      "box_px": {
+        "x": 1682,
+        "y": 220,
+        "w": 200,
+        "h": 30
+      },
+      "font": "Inter Regular 18pt",
+      "color": "#334155"
+    },
+    "partner_name": {
+      "pptx_shape_name": "partner_name",
+      "placeholder_text": "{{company}}",
+      "box_px": {
+        "x": 1682,
+        "y": 250,
+        "w": 200,
+        "h": 70
+      },
+      "font": "Inter Bold 20pt",
+      "color": "#0B1220",
+      "max_lines": 2,
+      "fit_rule": "wrap on word boundaries only; if a single word is wider than 200px or text needs >2 lines, reduce font size down to 16pt"
+    }
+  },
+  "other_slides": "2-9 are full-bleed background images, no fields",
+  "backgrounds": {
+    "folder": "slides/",
+    "files": [
+      "slide-1.jpg",
+      "slide-2.jpg",
+      "slide-3.jpg",
+      "slide-4.jpg",
+      "slide-5.jpg",
+      "slide-6.jpg",
+      "slide-7.jpg",
+      "slide-8.jpg",
+      "slide-9.jpg"
+    ],
+    "size_px": [
+      3840,
+      2160
+    ],
+    "note": "slide-1.jpg is the clean slide 1 without the partner block; draw logo frame + texts on it using box_px x2"
+  }
+}

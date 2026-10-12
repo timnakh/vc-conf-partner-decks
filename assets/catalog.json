@@ -1,0 +1,100 @@
+{
+  "templates": [
+    {
+      "id": "media-partner",
+      "label": "Медиапартнёр",
+      "group": "Медиа",
+      "pdf": "VC-Conf-2027-Media-Partners.pdf"
+    },
+    {
+      "id": "journalist",
+      "label": "Журналист",
+      "group": "Медиа",
+      "pdf": "VC-Conf-2027-Journalists.pdf"
+    },
+    {
+      "id": "speaker-day1",
+      "label": "Спикер главного стейджа — день 1",
+      "group": "Спикеры",
+      "pdf": "VC-Conf-2027-Day-1-Speakers.pdf"
+    },
+    {
+      "id": "speaker-day3",
+      "label": "Спикер главного стейджа — день 3",
+      "group": "Спикеры",
+      "pdf": "VC-Conf-2027-Day-3-Speakers.pdf"
+    },
+    {
+      "id": "breakout-host",
+      "label": "Хост брейкаута — день 1 или 3",
+      "group": "Брейкауты",
+      "pdf": "VC-Conf-2027-Breakout-Room-Hosts.pdf"
+    },
+    {
+      "id": "breakout-host-day1",
+      "label": "Хост брейкаута — день 1",
+      "group": "Брейкауты",
+      "pdf": "VC-Conf-2027-Day-1-Breakout-Room-Hosts.pdf"
+    },
+    {
+      "id": "breakout-host-day3",
+      "label": "Хост брейкаута — день 3",
+      "group": "Брейкауты",
+      "pdf": "VC-Conf-2027-Day-3-Breakout-Room-Hosts.pdf"
+    },
+    {
+      "id": "breakout-investor-day1",
+      "label": "Инвестор брейкаута — день 1",
+      "group": "Брейкауты",
+      "pdf": "VC-Conf-2027-Day-1-Breakout-Room-Investors.pdf"
+    },
+    {
+      "id": "breakout-lp-day3",
+      "label": "LP / family office брейкаута — день 3",
+      "group": "Брейкауты",
+      "pdf": "VC-Conf-2027-Day-3-Breakout-Room-LPs-FOs.pdf"
+    },
+    {
+      "id": "on1-bogdan",
+      "label": "Инвестор на 1:1 — Bogdan",
+      "group": "1:1",
+      "pdf": "VC-Conf-2027-1on1-Investors-Bogdan.pdf"
+    },
+    {
+      "id": "on1-george",
+      "label": "Инвестор на 1:1 — George",
+      "group": "1:1",
+      "pdf": "VC-Conf-2027-1on1-Investors-George.pdf"
+    },
+    {
+      "id": "on1-kirill",
+      "label": "Инвестор на 1:1 — Kirill",
+      "group": "1:1",
+      "pdf": "VC-Conf-2027-1on1-Investors-Kirill.pdf"
+    },
+    {
+      "id": "on1-roman",
+      "label": "Инвестор на 1:1 — Roman",
+      "group": "1:1",
+      "pdf": "VC-Conf-2027-1on1-Investors-Roman.pdf"
+    },
+    {
+      "id": "on1-zarina",
+      "label": "Инвестор на 1:1 — Zarina",
+      "group": "1:1",
+      "pdf": "VC-Conf-2027-1on1-Investors-Zarina.pdf"
+    },
+    {
+      "id": "brief-all-roles",
+      "label": "Бриф по всем ролям",
+      "group": "Обзор",
+      "pdf": "VC-Conf-2027-Partner-Brief-All-Roles.pdf"
+    },
+    {
+      "id": "brief-all-roles-photos",
+      "label": "Бриф по всем ролям — с фото",
+      "group": "Обзор",
+      "pdf": "VC-Conf-2027-Partner-Brief-All-Roles-with-photos.pdf"
+    }
+  ]
+}
