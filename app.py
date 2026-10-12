@@ -15,11 +15,13 @@ from pathlib import Path
 
 from fetch_logo import fetch_logo
 from names import display_name
+import store
 from fill import (
     ascii_filename,
     fill_deck,
     fill_from_csv,
     get_template,
+    links_csv,
     load_catalog,
     pack_selected,
     render_filename,
@@ -159,6 +161,7 @@ async def batch_start(
             "zip_name": zip_name,
             "previews": [],
             "fieldnames": [],
+            "rows": [],
             "error": "",
         }
 
@@ -168,7 +171,7 @@ async def batch_start(
             def progress(done, total, name):
                 _set_job(job_id, done=done, total=total, current=name)
 
-            failed, previews, fieldnames = fill_from_csv(
+            failed, previews, fieldnames, rows = fill_from_csv(
                 io.StringIO(csv_text),
                 logos_map=logos_map,
                 template=item["path"],
@@ -182,6 +185,7 @@ async def batch_start(
                 failed=failed,
                 previews=previews,
                 fieldnames=fieldnames,
+                rows=rows,
                 current="готово",
             )
         except Exception as e:
@@ -228,6 +232,60 @@ def batch_preview(job_id: str, index: int):
             raise HTTPException(404, "нет такого превью")
         data = previews[index]["jpeg"]
     return Response(data, media_type="image/jpeg")
+
+
+@app.get("/storage")
+def storage_status():
+    return {"ok": store.configured(), "base": store.public_base() if store.configured() else ""}
+
+
+@app.post("/fill/{fill_id}/share")
+def fill_share(fill_id: str):
+    item = FILLS.get(fill_id)
+    if not item:
+        raise HTTPException(404, "превью уже не доступно — собери ещё раз")
+    if not store.configured():
+        raise HTTPException(400, store.MISSING)
+    key = f"decks/one/{fill_id}/{item['filename']}"
+    try:
+        url = store.put_pdf(key, item["pdf"], item["filename"])
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    return {"url": url, "filename": item["filename"]}
+
+
+@app.post("/batch/{job_id}/share")
+def batch_share(job_id: str, body: PackBody):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if not job or job["status"] != "done":
+            raise HTTPException(404, "ещё не готово")
+        previews = list(job.get("previews") or [])
+        rows = list(job.get("rows") or [])
+        fieldnames = list(job.get("fieldnames") or [])
+        zip_name = job["zip_name"]
+    if not store.configured():
+        raise HTTPException(400, store.MISSING)
+    skip_set = set(body.skip)
+    urls: dict[int, str] = {}
+    try:
+        for i, item in enumerate(previews):
+            if i in skip_set:
+                continue
+            key = f"decks/{job_id}/{item['filename']}"
+            urls[int(item["row_index"])] = store.put_pdf(
+                key, item["pdf"], item["filename"]
+            )
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    csv_name = zip_name.replace(".zip", "-links.csv")
+    if not csv_name.endswith(".csv"):
+        csv_name = "links.csv"
+    return Response(
+        links_csv(rows, fieldnames, urls),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": _disposition(csv_name)},
+    )
 
 
 @app.post("/batch/{job_id}/pack")

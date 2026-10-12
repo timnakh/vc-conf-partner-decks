@@ -5,3 +5,4 @@ uvicorn==0.37.0
 python-multipart==0.0.20
 pypdfium2==4.30.0
 pydantic==2.11.9
+boto3==1.40.46

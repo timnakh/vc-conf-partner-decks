@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libjpeg62-turbo
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py fill.py fetch_logo.py names.py build_templates.py ./
+COPY app.py fill.py fetch_logo.py names.py build_templates.py store.py ./
 COPY static ./static
 COPY assets ./assets
 

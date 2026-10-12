@@ -389,7 +389,7 @@ def fill_from_csv(
     template_label: str | None = None,
     name_pattern: str | None = None,
     on_progress=None,
-) -> tuple[list[dict], list[dict], list[str]]:
+) -> tuple[list[dict], list[dict], list[str], list[dict]]:
     from fetch_logo import fetch_logo
 
     logos_map = logos_map or {}
@@ -485,6 +485,7 @@ def fill_from_csv(
                 "pdf": data,
                 "filename": filename,
                 "row": original,
+                "row_index": i - 1,
             }
         )
         if on_progress:
@@ -492,7 +493,7 @@ def fill_from_csv(
 
     if on_progress:
         on_progress(total, total, "готово")
-    return failed, previews, fieldnames
+    return failed, previews, fieldnames, rows
 
 
 def pack_selected(
@@ -521,6 +522,24 @@ def pack_selected(
             zf.writestr("needs_review.csv", buf.getvalue().encode("utf-8-sig"))
     zip_buf.seek(0)
     return zip_buf.getvalue()
+
+
+def links_csv(
+    rows: list[dict],
+    fieldnames: list[str],
+    urls_by_row: dict[int, str],
+) -> bytes:
+    cols = [h for h in fieldnames if h]
+    link_col = "link" if "link" not in cols else "pdf_url"
+    cols = cols + [link_col]
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=cols, extrasaction="ignore")
+    w.writeheader()
+    for i, row in enumerate(rows):
+        out = {k: (row.get(k) or "") for k in fieldnames if k}
+        out[link_col] = urls_by_row.get(i, "")
+        w.writerow(out)
+    return buf.getvalue().encode("utf-8-sig")
 
 
 def unpack_logo_zip(data: bytes) -> dict[str, bytes]:

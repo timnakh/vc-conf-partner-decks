@@ -39,6 +39,11 @@
     button { margin-top: 16px; background:var(--ink); color:#fff; border:0; border-radius:12px; padding:11px 18px; font: 600 15px Inter, sans-serif; cursor:pointer; }
     button:hover { background:#1a2744; }
     button:disabled { opacity:.5; cursor:wait; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .actions button { margin-top:16px; }
+    .link-out { margin-top:10px; display:none; }
+    .link-out.on { display:block; }
+    .link-out input { font-size:13px; }
     .err { color:#b91c1c; font-size:14px; margin-top:10px; }
     .ok { color:#166534; font-size:14px; margin-top:10px; }
     .progress { display:none; margin-top:14px; }
@@ -134,7 +139,14 @@
         <div class="preview-box" id="one-preview">
           <p class="who" id="one-preview-name"></p>
           <img class="hero" id="one-preview-img" alt="Блок партнёра на первом слайде" />
-          <button type="button" id="one-download">Скачать PDF</button>
+          <div class="actions">
+            <button type="button" id="one-download">Скачать PDF</button>
+            <button type="button" class="ghost" id="one-share">Сделать ссылку</button>
+          </div>
+          <div class="link-out" id="one-link-box">
+            <label for="one-link">Ссылка для письма</label>
+            <input id="one-link" type="text" readonly />
+          </div>
         </div>
       </form>
     </section>
@@ -165,9 +177,12 @@
         <div class="err" id="batch-err"></div>
         <div class="ok" id="batch-ok"></div>
         <div class="preview-box" id="batch-gallery">
-          <p class="carousel-hint" id="gal-hint">Прокрути вбок колёсиком или трекпадом. Галочка — не брать в архив: строка попадёт в needs_review.csv внутри zip.</p>
+          <p class="carousel-hint" id="gal-hint">Прокрути вбок колёсиком или трекпадом. Галочка — не брать: не попадёт в zip и без ссылки в CSV.</p>
           <div class="carousel" id="gal-track"></div>
-          <button type="button" id="batch-download">Скачать выбранные PDF</button>
+          <div class="actions">
+            <button type="button" id="batch-download">Скачать выбранные PDF</button>
+            <button type="button" class="ghost" id="batch-share">Сделать ссылки и скачать CSV</button>
+          </div>
         </div>
       </form>
     </section>
@@ -211,6 +226,33 @@
       downloadBlob(await res.blob(), filenameFrom(res, "partner.pdf"));
     });
 
+    document.getElementById("one-share").addEventListener("click", async () => {
+      if (!oneId) return;
+      const err = document.getElementById("one-err");
+      const btn = document.getElementById("one-share");
+      err.textContent = "";
+      btn.disabled = true;
+      try {
+        const res = await fetch("/fill/" + oneId + "/share", { method: "POST" });
+        const text = await res.text();
+        if (!res.ok) {
+          err.textContent = text;
+          return;
+        }
+        const data = JSON.parse(text);
+        const box = document.getElementById("one-link-box");
+        const input = document.getElementById("one-link");
+        input.value = data.url;
+        box.classList.add("on");
+        input.select();
+        try { await navigator.clipboard.writeText(data.url); } catch (e) { /* select enough */ }
+      } catch (ex) {
+        err.textContent = ex.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
     document.getElementById("one").addEventListener("submit", async (e) => {
       e.preventDefault();
       const form = e.target;
@@ -220,6 +262,8 @@
       const btn = form.querySelector("button[type=submit]");
       err.textContent = "";
       preview.classList.remove("on");
+      document.getElementById("one-link-box").classList.remove("on");
+      document.getElementById("one-link").value = "";
       btn.disabled = true;
       prog.classList.add("on");
       try {
@@ -252,8 +296,8 @@
       const n = gallery.length;
       const drop = skipped().length;
       document.getElementById("gal-hint").textContent =
-        `Прокрути вбок. В архив: ${n - drop} из ${n}.` +
-        (drop ? ` Отмеченные (${drop}) попадут в needs_review.csv внутри zip.` : " Галочка — не брать, строка уйдёт в needs_review.csv в архиве.");
+        `Прокрути вбок. Берём: ${n - drop} из ${n}.` +
+        (drop ? ` Отмеченные (${drop}) — без PDF и с пустой ссылкой в CSV.` : " Галочка — не брать в zip и оставить ссылку пустой.");
     }
 
     document.getElementById("gal-track").addEventListener("wheel", (e) => {
@@ -286,6 +330,30 @@
         return;
       }
       downloadBlob(await dl.blob(), filenameFrom(dl, "presentations.zip"));
+    });
+
+    document.getElementById("batch-share").addEventListener("click", async () => {
+      if (!batchJob) return;
+      const err = document.getElementById("batch-err");
+      const btn = document.getElementById("batch-share");
+      err.textContent = "";
+      btn.disabled = true;
+      try {
+        const dl = await fetch("/batch/" + batchJob + "/share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ skip: skipped() }),
+        });
+        if (!dl.ok) {
+          err.textContent = await dl.text();
+          return;
+        }
+        downloadBlob(await dl.blob(), filenameFrom(dl, "links.csv"));
+      } catch (ex) {
+        err.textContent = ex.message;
+      } finally {
+        btn.disabled = false;
+      }
     });
 
     document.getElementById("batch").addEventListener("submit", async (e) => {
