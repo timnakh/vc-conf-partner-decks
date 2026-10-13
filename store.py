@@ -40,7 +40,7 @@ def public_url(key: str) -> str:
     return public_base() + "/" + quote(key, safe="/-._~")
 
 
-def put_pdf(key: str, data: bytes, filename: str) -> str:
+def put_file(key: str, data: bytes, filename: str, content_type: str) -> str:
     if not configured():
         raise RuntimeError(MISSING)
     import boto3
@@ -59,7 +59,7 @@ def put_pdf(key: str, data: bytes, filename: str) -> str:
         Bucket=os.environ["S3_BUCKET"].strip(),
         Key=key,
         Body=data,
-        ContentType="application/pdf",
+        ContentType=content_type,
         ContentDisposition=(
             f'inline; filename="{ascii_name}"; '
             f"filename*=UTF-8''{quote(filename)}"
@@ -67,3 +67,7 @@ def put_pdf(key: str, data: bytes, filename: str) -> str:
         CacheControl="public, max-age=31536000, immutable",
     )
     return public_url(key)
+
+
+def put_pdf(key: str, data: bytes, filename: str) -> str:
+    return put_file(key, data, filename, "application/pdf")

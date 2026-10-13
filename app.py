@@ -27,6 +27,7 @@ from fill import (
     render_filename,
     unpack_logo_zip,
 )
+from poster import fill_poster, fill_posters_from_csv, poster_filename
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
@@ -201,6 +202,7 @@ async def fill_one(
         "filename": filename,
         "preview": preview,
         "template_id": template,
+        "content_type": "application/pdf",
     }
     return JSONResponse(
         {
@@ -219,7 +221,7 @@ def fill_download(fill_id: str):
         raise HTTPException(404, "превью уже не доступно — собери ещё раз")
     return Response(
         item["pdf"],
-        media_type="application/pdf",
+        media_type=item.get("content_type") or "application/pdf",
         headers={"Content-Disposition": _disposition(item["filename"])},
     )
 
@@ -275,6 +277,7 @@ async def batch_start(
             "share_csv": b"",
             "share_csv_name": "links.csv",
             "template_id": item["id"],
+            "content_type": "application/pdf",
         }
 
     def run() -> None:
@@ -359,6 +362,150 @@ def storage_status():
     return {"ok": store.configured(), "base": store.public_base() if store.configured() else ""}
 
 
+@app.get("/posters")
+def posters():
+    return JSONResponse(
+        [
+            {
+                "id": "media-partner",
+                "label": "Медиапартнёр",
+                "note": "MVP по примеру 1:1 Pitch Conf. Остальные роли — когда будут шаблоны.",
+            }
+        ]
+    )
+
+
+@app.post("/poster/fill")
+async def poster_fill(
+    company: str = Form(""),
+    name: str = Form(""),
+    url: str = Form(""),
+    promo: str = Form(""),
+    website: str = Form(""),
+    logo: Optional[UploadFile] = File(None),
+    photo: Optional[UploadFile] = File(None),
+    filename_pattern: str = Form(""),
+):
+    person = display_name((company or name or "").strip()) or (company or name or "").strip()
+    if not person:
+        raise HTTPException(400, "укажи название компании")
+    image = None
+    chosen = logo if (logo is not None and logo.filename) else photo
+    if chosen is not None and chosen.filename:
+        image = io.BytesIO(await chosen.read())
+    elif website.strip():
+        try:
+            image = fetch_logo(website)
+        except Exception as e:
+            raise HTTPException(400, str(e)) from e
+    token = _busy_acquire("fill", 1)
+    if not token:
+        raise HTTPException(409, _busy_snapshot()["message"])
+    try:
+        _busy_progress(0, 1)
+        data, preview, meta = fill_poster(
+            person, logo=image, url=url, promo=promo
+        )
+        _busy_progress(1, 1)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    finally:
+        _busy_release(token)
+    filename = poster_filename(filename_pattern, person)
+    fill_id = uuid.uuid4().hex
+    FILLS[fill_id] = {
+        "pdf": data,
+        "filename": filename,
+        "preview": preview,
+        "template_id": "poster-mp",
+        "content_type": "image/png",
+        "meta": meta,
+    }
+    return JSONResponse(
+        {
+            "id": fill_id,
+            "name": person,
+            "filename": filename,
+            "track_url": meta["url"],
+            "promo": meta["promo"],
+            "preview": "data:image/jpeg;base64," + base64.b64encode(preview).decode(),
+        }
+    )
+
+
+@app.post("/poster/batch/start")
+async def poster_batch_start(
+    csv_file: UploadFile = File(...),
+    photos_zip: Optional[UploadFile] = File(None),
+    logos_zip: Optional[UploadFile] = File(None),
+    filename_pattern: str = Form(""),
+):
+    csv_text = (await csv_file.read()).decode("utf-8-sig")
+    z = photos_zip if (photos_zip is not None and photos_zip.filename) else logos_zip
+    logos_map = {}
+    if z is not None and z.filename:
+        logos_map = unpack_logo_zip(await z.read())
+    approx = max(csv_text.count("\n") - 1, 0)
+    token = _busy_acquire("fill", approx)
+    if not token:
+        raise HTTPException(409, _busy_snapshot()["message"])
+    job_id = uuid.uuid4().hex
+    zip_name = poster_filename(
+        filename_pattern or "VC Conf posters — {name}.png", "медиапартнёр"
+    ).replace(".png", ".zip")
+    with JOBS_LOCK:
+        JOBS[job_id] = {
+            "status": "running",
+            "done": 0,
+            "total": approx,
+            "current": "начинаем",
+            "failed": [],
+            "zip_name": zip_name,
+            "previews": [],
+            "fieldnames": [],
+            "rows": [],
+            "error": "",
+            "share_status": "idle",
+            "share_done": 0,
+            "share_total": 0,
+            "share_current": "",
+            "share_error": "",
+            "share_csv": b"",
+            "share_csv_name": "poster-links.csv",
+            "template_id": "poster-mp",
+            "content_type": "image/png",
+        }
+
+    def run() -> None:
+        try:
+
+            def progress(done, total, name):
+                _set_job(job_id, done=done, total=total, current=name)
+                _busy_progress(done, total)
+
+            failed, previews, fieldnames, rows = fill_posters_from_csv(
+                io.StringIO(csv_text),
+                logos_map=logos_map,
+                on_progress=progress,
+            )
+            _set_job(
+                job_id,
+                status="done",
+                failed=failed,
+                previews=previews,
+                fieldnames=fieldnames,
+                rows=rows,
+                current="готово",
+            )
+        except Exception as e:
+            _set_job(job_id, status="error", error=str(e), current="")
+        finally:
+            _busy_release(token)
+
+    threading.Thread(target=run, daemon=True).start()
+    return JSONResponse({"job_id": job_id, "token": token})
+
+
 @app.post("/fill/{fill_id}/share")
 def fill_share(fill_id: str):
     item = FILLS.get(fill_id)
@@ -371,7 +518,12 @@ def fill_share(fill_id: str):
     if not token:
         raise HTTPException(409, _busy_snapshot()["message"])
     try:
-        url = store.put_pdf(key, item["pdf"], item["filename"])
+        url = store.put_file(
+            key,
+            item["pdf"],
+            item["filename"],
+            item.get("content_type") or "application/pdf",
+        )
     except Exception as e:
         raise HTTPException(400, str(e)) from e
     finally:
@@ -394,6 +546,7 @@ def batch_share(job_id: str, body: PackBody):
         fieldnames = list(job.get("fieldnames") or [])
         zip_name = job["zip_name"]
         folder = job.get("template_id") or "decks"
+        content_type = job.get("content_type") or "application/pdf"
         skip_set = set(body.skip)
         todo = [p for i, p in enumerate(previews) if i not in skip_set]
         job["share_status"] = "running"
@@ -415,19 +568,24 @@ def batch_share(job_id: str, body: PackBody):
                 _set_job(job_id, share_current=item.get("name") or item["filename"], share_done=n - 1)
                 _busy_progress(n - 1, len(todo))
                 key = store.object_key(item["filename"], folder)
-                urls[int(item["row_index"])] = store.put_pdf(
-                    key, item["pdf"], item["filename"]
+                urls[int(item["row_index"])] = store.put_file(
+                    key, item["pdf"], item["filename"], content_type
                 )
                 _set_job(job_id, share_done=n)
                 _busy_progress(n, len(todo))
             csv_name = zip_name.replace(".zip", "-links.csv")
             if not csv_name.endswith(".csv"):
                 csv_name = "links.csv"
+            extras: dict[int, dict] = {}
+            for item in todo:
+                meta = item.get("meta") or {}
+                if meta.get("url"):
+                    extras[int(item["row_index"])] = {"track_url": meta["url"]}
             _set_job(
                 job_id,
                 share_status="done",
                 share_current="готово",
-                share_csv=links_csv(rows, fieldnames, urls),
+                share_csv=links_csv(rows, fieldnames, urls, extras),
                 share_csv_name=csv_name,
             )
         except Exception as e:

@@ -563,16 +563,25 @@ def links_csv(
     rows: list[dict],
     fieldnames: list[str],
     urls_by_row: dict[int, str],
+    extras_by_row: dict[int, dict] | None = None,
 ) -> bytes:
     cols = [h for h in fieldnames if h]
     if "pdf_url" not in cols:
         cols.append("pdf_url")
+    extras_by_row = extras_by_row or {}
+    extra_keys: list[str] = []
+    for extra in extras_by_row.values():
+        for key in extra:
+            if key not in cols and key not in extra_keys:
+                extra_keys.append(key)
+    cols.extend(extra_keys)
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=cols, extrasaction="ignore")
     w.writeheader()
     for i, row in enumerate(rows):
         out = {k: (row.get(k) or "") for k in fieldnames if k}
         out["pdf_url"] = urls_by_row.get(i, "")
+        out.update(extras_by_row.get(i) or {})
         w.writerow(out)
     return buf.getvalue().encode("utf-8-sig")
 
