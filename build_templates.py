@@ -9,7 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pypdfium2 as pdfium
-from PIL import Image
+from PIL import Image, ImageDraw
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.oxml.ns import qn
@@ -27,6 +27,16 @@ PDF_OVERRIDES = {
     "media-partner": Path(
         "/Users/timnakhapetov/Dev/presentations/template/VC-Conf-2027-Media-Partners.pdf"
     ),
+    "speaker-day3": Path(
+        "/Users/timnakhapetov/Downloads/Telegram Desktop/VC_Conf_2027_Day_3_Speakers_Dave_Mullen.pdf"
+    ),
+}
+# 1920-space. Wipe baked-in speaker photo + name on slide 1.
+WIPE_SLIDE1 = {
+    "speaker-day3": {
+        "photo": (98, 334, 145),
+        "name": (250, 348, 340, 100),
+    }
 }
 # New Tim headshot lives in this last-slide JPEG; paste onto other decks
 # that reuse the same left-card slot (journalist).
@@ -60,12 +70,32 @@ def _overlay_elements(donor_slide):
     ]
 
 
-def build_one(pdf_path: Path, dest: Path, overlay) -> None:
+def wipe_slide1(im: Image.Image, spec: dict) -> Image.Image:
+    s = im.width / 1920
+    x, y, d = spec["photo"]
+    nx, ny, nw, nh = spec["name"]
+    color = im.getpixel((max(0, int(70 * s)), max(0, int(300 * s))))
+    draw = ImageDraw.Draw(im)
+    pad = 4 * s
+    draw.ellipse(
+        [x * s - pad, y * s - pad, (x + d) * s + pad, (y + d) * s + pad],
+        fill=color,
+    )
+    x0, y0 = int(nx * s), int(ny * s)
+    x1, y1 = int((nx + nw) * s), int((ny + nh) * s)
+    strip_y = max(0, y0 - 12)
+    strip = im.crop((x0, strip_y, x1, strip_y + 4))
+    im.paste(strip.resize((x1 - x0, y1 - y0), Image.Resampling.BILINEAR), (x0, y0))
+    return im
+
+
+def build_one(pdf_path: Path, dest: Path, overlay, template_id: str = "") -> None:
     pdf = pdfium.PdfDocument(str(pdf_path))
     prs = Presentation()
     prs.slide_width = SLIDE_W
     prs.slide_height = SLIDE_H
     layout = _blank_layout(prs)
+    wipe = WIPE_SLIDE1.get(template_id)
 
     for i, page in enumerate(pdf):
         pw, _ph = page.get_size()
@@ -73,12 +103,14 @@ def build_one(pdf_path: Path, dest: Path, overlay) -> None:
         pil = page.render(scale=scale).to_pil().convert("RGB")
         if pil.size != (3840, 2160):
             pil = pil.resize((3840, 2160), Image.Resampling.LANCZOS)
+        if i == 0 and wipe:
+            pil = wipe_slide1(pil, wipe)
         buf = io.BytesIO()
         pil.save(buf, format="JPEG", quality=92, optimize=True)
         buf.seek(0)
         slide = prs.slides.add_slide(layout)
         slide.shapes.add_picture(buf, Emu(0), Emu(0), width=SLIDE_W, height=SLIDE_H)
-        if i == 0:
+        if i == 0 and overlay:
             tree = slide.shapes._spTree
             for el in overlay:
                 tree.append(deepcopy(el))
@@ -152,10 +184,11 @@ def main() -> int:
             return 1
         print(item["label"])
         jpeg_dir = JPEG_SLIDES.get(item["id"])
+        overlay_use = None if item["id"] in WIPE_SLIDE1 else overlay
         if jpeg_dir and jpeg_dir.exists():
-            build_from_jpegs(jpeg_dir, dest, overlay)
+            build_from_jpegs(jpeg_dir, dest, overlay_use)
         else:
-            build_one(pdf_path, dest, overlay)
+            build_one(pdf_path, dest, overlay_use, template_id=item["id"])
         if item["id"] in PATCH_TIM_ON:
             patch_tim_photo(dest)
     return 0

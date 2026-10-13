@@ -8,6 +8,7 @@ import json
 import re
 import shutil
 import zipfile
+from copy import deepcopy
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps
@@ -44,8 +45,17 @@ def ensure_inter_installed() -> None:
 ensure_inter_installed()
 
 
-def load_spec() -> dict:
-    return json.loads(SPEC_PATH.read_text())
+def load_spec(template_id: str | None = None) -> dict:
+    data = json.loads(SPEC_PATH.read_text())
+    extra = (data.get("by_id") or {}).get(template_id or "")
+    spec = {k: v for k, v in data.items() if k != "by_id"}
+    if not extra:
+        return spec
+    spec["fields"] = deepcopy(spec["fields"])
+    for name, field in (extra.get("fields") or {}).items():
+        base = spec["fields"].get(name) or {}
+        spec["fields"][name] = {**base, **field} if isinstance(field, dict) else field
+    return spec
 
 
 def load_catalog() -> list[dict]:
@@ -190,12 +200,19 @@ def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list[str]
     return lines
 
 
-def _fit_name(text: str, max_w: int, max_h: int, scale: float) -> tuple[ImageFont.FreeTypeFont, list[str]]:
+def _fit_name(
+    text: str,
+    max_w: int,
+    max_h: int,
+    scale: float,
+    pts: tuple[int, ...] | None = None,
+) -> tuple[ImageFont.FreeTypeFont, list[str]]:
     dummy = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     spacing = round(-2 * scale)
+    sizes = tuple(pts) if pts else (20, 18, 16)
     attempts = (
-        (1, (20, 18, 16)),
-        (2, (20, 18, 16, 14)),
+        (1, sizes),
+        (2, sizes + (14,) if 14 not in sizes else sizes),
     )
     for max_lines, pts in attempts:
         for pt in pts:
@@ -225,7 +242,8 @@ def _overlay(slide: Image.Image, name: str, photo: Path | io.BytesIO | None, spe
     ring_w = max(1, round(logo["ring"]["width_px"] * scale))
 
     draw.rounded_rectangle((x, y, x + w - 1, y + w - 1), radius=r, fill="#FFFFFF")
-    inset = ring_w + max(2, round(4 * scale))
+    circle = r >= max(2, w // 2 - 2)
+    inset = ring_w + (max(1, round(1 * scale)) if circle else max(2, round(4 * scale)))
     ix = x + inset
     iy = y + inset
     iw = max(8, w - 2 * inset)
@@ -244,17 +262,19 @@ def _overlay(slide: Image.Image, name: str, photo: Path | io.BytesIO | None, spe
     )
 
     label = spec["fields"]["partner_label"]
-    lx = round(label["box_px"]["x"] * scale)
-    ly = round(label["box_px"]["y"] * scale)
-    label_font = _font("regular", _pt(18, scale))
-    draw.text((lx, ly), label["static_text"], font=label_font, fill="#64748B")
+    if label.get("static_text"):
+        lx = round(label["box_px"]["x"] * scale)
+        ly = round(label["box_px"]["y"] * scale)
+        label_font = _font("regular", _pt(18, scale))
+        draw.text((lx, ly), label["static_text"], font=label_font, fill="#64748B")
 
     name_f = spec["fields"]["partner_name"]
     nx = round(name_f["box_px"]["x"] * scale)
     ny = round(name_f["box_px"]["y"] * scale)
     nw = round(name_f["box_px"]["w"] * scale)
     nh = round(name_f["box_px"]["h"] * scale)
-    font, lines = _fit_name(name, nw, nh, scale)
+    pts = tuple(name_f["fit_pts"]) if name_f.get("fit_pts") else None
+    font, lines = _fit_name(name, nw, nh, scale, pts=pts)
     draw.multiline_text(
         (nx, ny),
         "\n".join(lines),
@@ -285,9 +305,10 @@ def partner_preview(slide: Image.Image, spec: dict) -> bytes:
     scale = slide.width / 1920
     boxes = [
         spec["fields"]["partner_logo"]["box_px"],
-        spec["fields"]["partner_label"]["box_px"],
         spec["fields"]["partner_name"]["box_px"],
     ]
+    if spec["fields"]["partner_label"].get("static_text"):
+        boxes.append(spec["fields"]["partner_label"]["box_px"])
     pad = 28
     x0 = max(0, round((min(b["x"] for b in boxes) - pad) * scale))
     y0 = max(0, round((min(b["y"] for b in boxes) - pad) * scale))
@@ -312,7 +333,10 @@ def fill_deck(
 ) -> tuple[bytes, bytes]:
     import img2pdf
 
-    spec = load_spec()
+    tid = None
+    if template is not None:
+        tid = Path(template).stem
+    spec = load_spec(tid)
     company = display_name(company)
     if not company:
         raise ValueError("укажи имя или название компании")

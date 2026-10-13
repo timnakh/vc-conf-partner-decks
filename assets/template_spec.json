@@ -82,5 +82,27 @@
       2160
     ],
     "note": "slide-1.jpg is the clean slide 1 without the partner block; draw logo frame + texts on it using box_px x2"
+  },
+  "by_id": {
+    "speaker-day3": {
+      "fields": {
+        "partner_logo": {
+          "type": "circle photo (orange ring)",
+          "box_px": { "x": 98, "y": 334, "w": 145, "h": 145 },
+          "corner_radius_px": 73,
+          "ring": { "color": "#F9A72A", "width_px": 5 },
+          "logo_inner_box_px": { "x": 108, "y": 344, "w": 125, "h": 125 }
+        },
+        "partner_label": {
+          "static_text": "",
+          "box_px": { "x": 268, "y": 334, "w": 1, "h": 1 }
+        },
+        "partner_name": {
+          "box_px": { "x": 268, "y": 368, "w": 420, "h": 80 },
+          "font": "Inter Bold 32pt",
+          "fit_pts": [32, 28, 24, 20]
+        }
+      }
+    }
   }
 }
