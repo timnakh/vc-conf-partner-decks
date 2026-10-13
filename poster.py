@@ -25,10 +25,24 @@ ROOT = Path(__file__).resolve().parent
 TEMPLATE = ROOT / "assets" / "posters" / "media-partner.png"
 SPEC_PATH = ROOT / "assets" / "posters" / "media-partner.json"
 DEFAULT_URL = "https://vcconf.com/?15"
+_SPEC: dict | None = None
+_BASE: Image.Image | None = None
+_FONTS: dict[tuple[str, int], ImageFont.FreeTypeFont] = {}
+_DUMMY = ImageDraw.Draw(Image.new("RGB", (1, 1)))
 
 
 def _spec() -> dict:
-    return json.loads(SPEC_PATH.read_text())
+    global _SPEC
+    if _SPEC is None:
+        _SPEC = json.loads(SPEC_PATH.read_text())
+    return _SPEC
+
+
+def _base() -> Image.Image:
+    global _BASE
+    if _BASE is None:
+        _BASE = Image.open(TEMPLATE).convert("RGB")
+    return _BASE
 
 
 def _s(v: float, scale: float) -> int:
@@ -36,12 +50,18 @@ def _s(v: float, scale: float) -> int:
 
 
 def _font(weight: str, px: int) -> ImageFont.FreeTypeFont:
+    key = (weight, int(px))
+    cached = _FONTS.get(key)
+    if cached is not None:
+        return cached
     files = {
         "bold": "Inter-Bold.otf",
         "semibold": "Inter-SemiBold.otf",
         "regular": "Inter-Regular.otf",
     }
-    return ImageFont.truetype(str(FONT_FILES / files.get(weight, "Inter-Regular.otf")), px)
+    font = ImageFont.truetype(str(FONT_FILES / files.get(weight, "Inter-Regular.otf")), px)
+    _FONTS[key] = font
+    return font
 
 
 def apply_utm(url: str, company: str) -> str:
@@ -105,7 +125,7 @@ def _sample(im: Image.Image, x: int, y: int) -> tuple[int, int, int, int]:
 
 
 def _fit_px(text: str, max_w: int, max_h: int, size: int) -> tuple[ImageFont.FreeTypeFont, list[str], int]:
-    dummy = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    dummy = _DUMMY
     for s in range(size, 20, -2):
         font = _font("bold", s)
         lines = _wrap_text(text, font, max_w)
@@ -137,8 +157,9 @@ def fill_poster(
     canvas_w, canvas_h = spec["canvas"]
     out_w, out_h = _s(canvas_w, s), _s(canvas_h, s)
 
-    base = Image.open(TEMPLATE).convert("RGBA")
-    im = base if base.size == (out_w, out_h) else base.resize((out_w, out_h), Image.Resampling.LANCZOS)
+    im = _base().copy()
+    if im.size != (out_w, out_h):
+        im = im.resize((out_w, out_h), Image.Resampling.BILINEAR)
     draw = ImageDraw.Draw(im)
 
     logo_s = spec["logo"]
@@ -156,7 +177,7 @@ def fill_poster(
     nx, ny = _s(name_s["x"], s), _s(name_s["y"], s)
     nw, nh = _s(name_s["w"], s), _s(name_s["h"], s)
     font, lines, spacing = _fit_px(name, nw, nh, _s(name_s["size"], s))
-    dummy = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    dummy = _DUMMY
     draw.multiline_text(
         (nx, ny),
         "\n".join(lines),
@@ -201,11 +222,11 @@ def fill_poster(
     draw.text((mid_x, top + h1 / 2), line1, font=f1, fill=color, anchor="mm")
     draw.text((mid_x, top + h1 + gap + h2 / 2), line2, font=f2, fill=color, anchor="mm")
 
-    rgb = im.convert("RGB")
+    rgb = im.convert("RGB") if im.mode != "RGB" else im
     out = io.BytesIO()
-    rgb.save(out, format="PNG", optimize=True)
+    rgb.save(out, format="PNG", compress_level=2)
     preview = io.BytesIO()
-    rgb.resize((410, 512), Image.Resampling.LANCZOS).save(preview, format="JPEG", quality=88)
+    rgb.resize((410, 512), Image.Resampling.BILINEAR).save(preview, format="JPEG", quality=80)
     meta = {
         "company": name,
         "url": final_url,
