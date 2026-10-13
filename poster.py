@@ -36,8 +36,12 @@ def _s(v: float, scale: float) -> int:
 
 
 def _font(weight: str, px: int) -> ImageFont.FreeTypeFont:
-    file = "Inter-Bold.otf" if weight == "bold" else "Inter-Regular.otf"
-    return ImageFont.truetype(str(FONT_FILES / file), px)
+    files = {
+        "bold": "Inter-Bold.otf",
+        "semibold": "Inter-SemiBold.otf",
+        "regular": "Inter-Regular.otf",
+    }
+    return ImageFont.truetype(str(FONT_FILES / files.get(weight, "Inter-Regular.otf")), px)
 
 
 def apply_utm(url: str, company: str) -> str:
@@ -100,13 +104,6 @@ def _sample(im: Image.Image, x: int, y: int) -> tuple[int, int, int, int]:
     return (px[0], px[1], px[2], 255)
 
 
-def _wipe_rows(im: Image.Image, box: tuple[int, int, int, int], sample_x: int) -> None:
-    x, y, w, h = box
-    draw = ImageDraw.Draw(im)
-    for yy in range(y, y + h):
-        draw.line([(x, yy), (x + w, yy)], fill=_sample(im, sample_x, yy))
-
-
 def _fit_px(text: str, max_w: int, max_h: int, size: int) -> tuple[ImageFont.FreeTypeFont, list[str], int]:
     dummy = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     for s in range(size, 20, -2):
@@ -136,21 +133,17 @@ def fill_poster(
     shown_url = print_url(entered)
     code = (promo or "").strip().upper()
     spec = _spec()
-    s = float(spec.get("scale") or 0.5)
+    s = float(spec.get("scale") or 1)
     canvas_w, canvas_h = spec["canvas"]
     out_w, out_h = _s(canvas_w, s), _s(canvas_h, s)
 
     base = Image.open(TEMPLATE).convert("RGBA")
-    im = base.resize((out_w, out_h), Image.Resampling.LANCZOS)
+    im = base if base.size == (out_w, out_h) else base.resize((out_w, out_h), Image.Resampling.LANCZOS)
     draw = ImageDraw.Draw(im)
 
     logo_s = spec["logo"]
     lx, ly = _s(logo_s["x"], s), _s(logo_s["y"], s)
     lw, lh = _s(logo_s["w"], s), _s(logo_s["h"], s)
-    pad = max(4, _s(12, s))
-    white = _sample(im, _s(80, s), _s(400, s))
-    draw.ellipse([lx - pad, ly - pad, lx + lw + pad, ly + lh + pad], fill=white)
-    draw.ellipse([lx, ly, lx + lw, ly + lh], fill=(255, 255, 255, 255))
     if logo is not None:
         if hasattr(logo, "seek"):
             logo.seek(0)
@@ -162,12 +155,6 @@ def fill_poster(
     name_s = spec["name"]
     nx, ny = _s(name_s["x"], s), _s(name_s["y"], s)
     nw, nh = _s(name_s["w"], s), _s(name_s["h"], s)
-    wipe_h = min(nh, _s(200, s))
-    _wipe_rows(
-        im,
-        (nx - pad, ny - pad, _s(1360, s) + 2 * pad, wipe_h + 2 * pad),
-        max(0, nx - _s(40, s)),
-    )
     font, lines, spacing = _fit_px(name, nw, nh, _s(name_s["size"], s))
     dummy = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     draw.multiline_text(
@@ -189,18 +176,19 @@ def fill_poster(
     line2 = (
         f"1:1 pitch tickets – 10% off with code {code}"
         if code
-        else "1:1 pitch tickets on the site"
+        else "1:1 pitch tickets – 10% off with code"
     )
     max_w = ctw - 2 * inset
     size1, size2 = _s(cta["line1_size"], s), _s(cta["line2_size"], s)
-    f1 = _font("bold", size1)
-    f2 = _font("regular", size2)
+    weight = cta.get("weight") or "semibold"
+    f1 = _font(weight, size1)
+    f2 = _font(weight, size2)
     while dummy.textlength(line1, font=f1) > max_w and size1 > 18:
         size1 -= 2
-        f1 = _font("bold", size1)
+        f1 = _font(weight, size1)
     while dummy.textlength(line2, font=f2) > max_w and size2 > 16:
         size2 -= 2
-        f2 = _font("regular", size2)
+        f2 = _font(weight, size2)
     w1 = dummy.textlength(line1, font=f1)
     w2 = dummy.textlength(line2, font=f2)
     color = tuple(cta["color"]) + (255,)
