@@ -189,11 +189,17 @@ def fill_poster(
     while dummy.textlength(line2, font=f2) > max_w and size2 > 16:
         size2 -= 2
         f2 = _font(weight, size2)
-    w1 = dummy.textlength(line1, font=f1)
-    w2 = dummy.textlength(line2, font=f2)
+    b1 = dummy.textbbox((0, 0), line1, font=f1)
+    b2 = dummy.textbbox((0, 0), line2, font=f2)
+    h1 = b1[3] - b1[1]
+    h2 = b2[3] - b2[1]
+    gap = _s(int(cta.get("line_gap") or 36), s)
+    block = h1 + gap + h2
+    top = cy + (cth - block) / 2
+    mid_x = cx + ctw / 2
     color = tuple(cta["color"]) + (255,)
-    draw.text((cx + (ctw - w1) / 2, _s(cta["line1_y"], s)), line1, font=f1, fill=color)
-    draw.text((cx + (ctw - w2) / 2, _s(cta["line2_y"], s)), line2, font=f2, fill=color)
+    draw.text((mid_x, top + h1 / 2), line1, font=f1, fill=color, anchor="mm")
+    draw.text((mid_x, top + h1 + gap + h2 / 2), line2, font=f2, fill=color, anchor="mm")
 
     rgb = im.convert("RGB")
     out = io.BytesIO()

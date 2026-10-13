@@ -152,6 +152,12 @@ def _is_photo(im: Image.Image) -> bool:
     return trans <= 8 and white <= 10
 
 
+def _flatten_white(src: Image.Image) -> Image.Image:
+    rgba = src.convert("RGBA")
+    bg = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+    return Image.alpha_composite(bg, rgba)
+
+
 def _contain_rounded(src: Image.Image, size: int, radius: int) -> Image.Image:
     mark = _trim_mark(src)
     mw, mh = mark.size
@@ -166,7 +172,7 @@ def _contain_rounded(src: Image.Image, size: int, radius: int) -> Image.Image:
 
 
 def _cover_rounded(src: Image.Image, size: int, radius: int) -> Image.Image:
-    fitted = ImageOps.fit(src.convert("RGB"), (size, size), Image.Resampling.LANCZOS)
+    fitted = ImageOps.fit(_flatten_white(src), (size, size), Image.Resampling.LANCZOS)
     rgba = fitted.convert("RGBA")
     rgba.putalpha(_round_mask(size, radius))
     return rgba

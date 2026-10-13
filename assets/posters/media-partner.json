@@ -8,10 +8,9 @@
     "y": 3498,
     "w": 2876,
     "h": 355,
-    "line1_y": 3579,
-    "line2_y": 3714,
     "line1_size": 100,
     "line2_size": 78,
+    "line_gap": 36,
     "color": [22, 35, 58],
     "weight": "semibold"
   }
