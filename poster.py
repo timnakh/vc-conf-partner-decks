@@ -144,6 +144,7 @@ def fill_poster(
     logo: Path | io.BytesIO | None = None,
     url: str = "",
     promo: str = "",
+    first_name: str = "",
 ) -> tuple[bytes, bytes, dict]:
     name = display_name(company) or (company or "").strip()
     if not name:
@@ -231,6 +232,7 @@ def fill_poster(
         "company": name,
         "url": final_url,
         "promo": code,
+        "first_name": (first_name or "").strip(),
         "kind": "media-partner",
     }
     return out.getvalue(), preview.getvalue(), meta
@@ -275,6 +277,12 @@ def fill_posters_from_csv(
         site = lower.get("website") or lower.get("site") or ""
         link = lower.get("link") or lower.get("url") or lower.get("utm") or ""
         promo = lower.get("promo") or lower.get("code") or lower.get("promocode") or ""
+        first_name = (
+            lower.get("first_name")
+            or lower.get("firstname")
+            or lower.get("contact")
+            or ""
+        )
         photo_val = lower.get("logo") or lower.get("photo") or lower.get("image") or ""
         photo = _photo_from_row(photo_val, None, logos_map) if photo_val else None
         if photo is None:
@@ -285,7 +293,9 @@ def fill_posters_from_csv(
             except Exception:
                 photo = None
         try:
-            data, preview, meta = fill_poster(company, logo=photo, url=link, promo=promo)
+            data, preview, meta = fill_poster(
+                company, logo=photo, url=link, promo=promo, first_name=first_name
+            )
         except Exception as e:
             failed.append({"name": company, "url": link, "reason": str(e), "row": original})
             continue

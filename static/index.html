@@ -255,6 +255,13 @@
         </div>
         <div class="row">
           <div>
+            <label for="p-first">Имя контакта</label>
+            <input id="p-first" name="first_name" type="text" placeholder="Scott" />
+          </div>
+          <p class="note">Для кита: «Hi Scott, welcome on board». Пусто — просто Hi.</p>
+        </div>
+        <div class="row">
+          <div>
             <label for="p-url">Ссылка регистрации</label>
             <input id="p-url" name="url" type="text" placeholder="https://vcconf.com/?15" value="https://vcconf.com/?15" />
           </div>
@@ -308,7 +315,7 @@
             <label for="p-md">Markdown — вставь в пустую страницу Notion</label>
             <textarea class="md" id="p-md" readonly></textarea>
           </div>
-          <p class="note" id="p-notion-note">4 поста + план выхода (4 / 3 / опоздал в декабре / в январе). Newsletters — suggested weeks, LinkedIn — вт–чт утро ET. Без Notion API: HTML и markdown.</p>
+          <p class="note" id="p-notion-note">Partner kit: ссылка и код, план из 4 отправок, перки, готовые тексты. Подставляем компанию, ссылку, промо, постер.</p>
         </div>
       </form>
     </section>
@@ -321,7 +328,7 @@
             <label for="p-csv">Таблица CSV</label>
             <input id="p-csv" name="csv_file" type="file" accept=".csv,text/csv" required />
           </div>
-          <p class="note">Колонки: <code>company</code> (или <code>name</code>), <code>url</code> / <code>link</code>, <code>promo</code> / <code>code</code>, сайт <code>website</code>. Пример: <a href="/static/sample-poster.csv">sample-poster.csv</a>.</p>
+          <p class="note">Колонки: <code>company</code>, <code>first_name</code> (необяз.), <code>url</code>, <code>promo</code>, <code>website</code>. Пример: <a href="/static/sample-poster.csv">sample-poster.csv</a>.</p>
         </div>
         <div class="zip-skip">Логотип с сайта часто кривой. Zip надёжнее: имя файла = компания, например <code>Founders Bay.png</code>.</div>
         <div class="row">

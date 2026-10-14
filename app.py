@@ -378,9 +378,14 @@ def poster_materials(fill_id: str):
     company = meta.get("company") or "partner"
     track = meta.get("url") or ""
     promo = meta.get("promo") or ""
+    first_name = meta.get("first_name") or ""
     if not store.configured():
         md = materials.markdown(
-            company=company, track_url=track, promo=promo, poster_url=""
+            company=company,
+            track_url=track,
+            promo=promo,
+            poster_url="",
+            first_name=first_name,
         )
         return JSONResponse(
             {
@@ -407,6 +412,7 @@ def poster_materials(fill_id: str):
             track_url=track,
             promo=promo,
             poster_url=poster_url,
+            first_name=first_name,
         )
         html_name = f"{company} — materials.html"
         html_url = store.put_file(
@@ -416,7 +422,11 @@ def poster_materials(fill_id: str):
             "text/html",
         )
         md = materials.markdown(
-            company=company, track_url=track, promo=promo, poster_url=poster_url
+            company=company,
+            track_url=track,
+            promo=promo,
+            poster_url=poster_url,
+            first_name=first_name,
         )
         notion_url = ""
         notion_error = ""
@@ -427,6 +437,7 @@ def poster_materials(fill_id: str):
                     track_url=track,
                     promo=promo,
                     poster_url=poster_url,
+                    first_name=first_name,
                 )
             except Exception as e:
                 notion_error = str(e)
@@ -464,6 +475,7 @@ def posters():
 async def poster_fill(
     company: str = Form(""),
     name: str = Form(""),
+    first_name: str = Form(""),
     url: str = Form(""),
     promo: str = Form(""),
     website: str = Form(""),
@@ -489,7 +501,7 @@ async def poster_fill(
     try:
         _busy_progress(0, 1)
         data, preview, meta = fill_poster(
-            person, logo=image, url=url, promo=promo
+            person, logo=image, url=url, promo=promo, first_name=first_name
         )
         _busy_progress(1, 1)
     except Exception as e:
@@ -676,6 +688,7 @@ def batch_share(job_id: str, body: PackBody):
                         track_url=meta.get("url") or "",
                         promo=meta.get("promo") or "",
                         poster_url=poster_url,
+                        first_name=meta.get("first_name") or "",
                     )
                     html_name = f"{company} — materials.html"
                     extra["materials_url"] = store.put_file(
@@ -689,6 +702,7 @@ def batch_share(job_id: str, body: PackBody):
                         track_url=meta.get("url") or "",
                         promo=meta.get("promo") or "",
                         poster_url=poster_url,
+                        first_name=meta.get("first_name") or "",
                     )
                 if extra:
                     extras[int(item["row_index"])] = extra

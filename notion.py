@@ -32,7 +32,14 @@ def _uuid(raw: str) -> str:
     return f"{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
 
 
-def create_mp_page(*, company: str, track_url: str, promo: str, poster_url: str) -> str:
+def create_mp_page(
+    *,
+    company: str,
+    track_url: str,
+    promo: str,
+    poster_url: str,
+    first_name: str = "",
+) -> str:
     if not configured():
         raise RuntimeError(MISSING)
     parent = _uuid(os.environ["NOTION_PARENT_PAGE_ID"])
@@ -49,6 +56,7 @@ def create_mp_page(*, company: str, track_url: str, promo: str, poster_url: str)
             track_url=track_url,
             promo=promo,
             poster_url=poster_url,
+            first_name=first_name,
         ),
     }
     if poster_url:
