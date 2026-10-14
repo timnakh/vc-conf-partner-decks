@@ -96,6 +96,11 @@
     .pane.on { display:block; }
     .pane-posters .card { flex: 0 0 46%; }
     .meta-line { font-size:13px; color:var(--muted); margin: 8px 0 0; word-break:break-all; }
+    textarea.md {
+      width:100%; min-height: 180px; padding:11px 12px; border:1px solid #ead9b3;
+      border-radius:12px; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      background:#fffef9; resize:vertical;
+    }
     @media (max-width: 720px) {
       .row { grid-template-columns: 1fr; }
       .note { margin-top: 6px; }
@@ -289,13 +294,21 @@
           <div class="actions">
             <button type="button" id="p-one-download">Скачать PNG</button>
             <button type="button" class="ghost" id="p-one-share">Сделать ссылку</button>
-            <button type="button" class="ghost" id="p-notion" disabled title="Следующим шагом">Подготовить страницу в Notion с материалами МП</button>
+            <button type="button" class="ghost" id="p-notion">Подготовить страницу с материалами МП</button>
           </div>
           <div class="link-out" id="p-one-link-box">
             <label for="p-one-link">Ссылка на PNG</label>
             <input id="p-one-link" type="text" readonly />
           </div>
-          <p class="note">Notion: следующим шагом. Постер + мета уедут на страницу, здесь будет ссылка.</p>
+          <div class="link-out" id="p-notion-box">
+            <label for="p-notion-link">Notion</label>
+            <input id="p-notion-link" type="text" readonly placeholder="появится, если в Render есть NOTION_TOKEN" />
+            <label for="p-html-link">Страница с материалами</label>
+            <input id="p-html-link" type="text" readonly />
+            <label for="p-md">Markdown — вставь в пустую страницу Notion</label>
+            <textarea class="md" id="p-md" readonly></textarea>
+          </div>
+          <p class="note" id="p-notion-note">Соберёт текст как в прошлом году (пост + постер + ссылка + промо). Без Notion API — страница на R2 и markdown для вставки.</p>
         </div>
       </form>
     </section>
@@ -695,6 +708,43 @@
       }
       downloadBlob(await res.blob(), filenameFrom(res, "poster.png"));
     });
+    document.getElementById("p-notion").addEventListener("click", async () => {
+      if (!posterOneId) return;
+      const err = document.getElementById("p-one-err");
+      const btn = document.getElementById("p-notion");
+      const note = document.getElementById("p-notion-note");
+      err.textContent = "";
+      btn.disabled = true;
+      try {
+        const res = await fetch("/poster/" + posterOneId + "/materials", { method: "POST" });
+        if (!res.ok) {
+          err.textContent = await errorText(res);
+          return;
+        }
+        const data = await res.json();
+        const box = document.getElementById("p-notion-box");
+        document.getElementById("p-notion-link").value = data.notion_url || "";
+        document.getElementById("p-html-link").value = data.html_url || "";
+        document.getElementById("p-md").value = data.markdown || "";
+        box.classList.add("on");
+        const best = data.notion_url || data.html_url || data.markdown || "";
+        if (data.notion_url) {
+          document.getElementById("p-notion-link").select();
+          note.textContent = "Страница в Notion готова.";
+        } else if (data.html_url) {
+          document.getElementById("p-html-link").select();
+          note.textContent = (data.notion_error || data.hint || "") +
+            " Пока: ссылка на HTML или вставь markdown в Notion.";
+        } else {
+          note.textContent = data.hint || "Скопируй markdown в Notion.";
+        }
+        try { await navigator.clipboard.writeText(best); } catch (e) { /* select enough */ }
+      } catch (ex) {
+        err.textContent = ex.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
     document.getElementById("p-one-share").addEventListener("click", async () => {
       if (!posterOneId) return;
       const err = document.getElementById("p-one-err");
@@ -731,6 +781,10 @@
       preview.classList.remove("on");
       document.getElementById("p-one-link-box").classList.remove("on");
       document.getElementById("p-one-link").value = "";
+      document.getElementById("p-notion-box").classList.remove("on");
+      document.getElementById("p-notion-link").value = "";
+      document.getElementById("p-html-link").value = "";
+      document.getElementById("p-md").value = "";
       btn.disabled = true;
       prog.classList.add("on");
       try {

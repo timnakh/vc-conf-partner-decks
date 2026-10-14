@@ -23,3 +23,7 @@ services:
         sync: false
       - key: S3_REGION
         value: auto
+      - key: NOTION_TOKEN
+        sync: false
+      - key: NOTION_PARENT_PAGE_ID
+        sync: false

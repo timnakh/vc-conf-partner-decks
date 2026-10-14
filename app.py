@@ -28,6 +28,8 @@ from fill import (
     unpack_logo_zip,
 )
 from poster import fill_poster, fill_posters_from_csv, poster_filename
+import materials
+import notion as notionmod
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
@@ -360,6 +362,89 @@ def batch_preview(job_id: str, index: int):
 @app.get("/storage")
 def storage_status():
     return {"ok": store.configured(), "base": store.public_base() if store.configured() else ""}
+
+
+@app.get("/notion")
+def notion_status():
+    return {"ok": notionmod.configured(), "storage": store.configured()}
+
+
+@app.post("/poster/{fill_id}/materials")
+def poster_materials(fill_id: str):
+    item = FILLS.get(fill_id)
+    if not item:
+        raise HTTPException(404, "превью уже не доступно — собери ещё раз")
+    meta = item.get("meta") or {}
+    company = meta.get("company") or "partner"
+    track = meta.get("url") or ""
+    promo = meta.get("promo") or ""
+    if not store.configured():
+        md = materials.markdown(
+            company=company, track_url=track, promo=promo, poster_url=""
+        )
+        return JSONResponse(
+            {
+                "title": materials.page_title(company),
+                "markdown": md,
+                "poster_url": "",
+                "html_url": "",
+                "notion_url": "",
+                "hint": store.MISSING,
+            }
+        )
+    token = _busy_acquire("share", 1)
+    if not token:
+        raise HTTPException(409, _busy_snapshot()["message"])
+    try:
+        poster_url = store.put_file(
+            store.object_key(item["filename"], item.get("template_id") or "poster-mp"),
+            item["pdf"],
+            item["filename"],
+            item.get("content_type") or "image/png",
+        )
+        html = materials.html_page(
+            company=company,
+            track_url=track,
+            promo=promo,
+            poster_url=poster_url,
+        )
+        html_name = f"{company} — materials.html"
+        html_url = store.put_file(
+            store.object_key(html_name, "poster-mp"),
+            html.encode("utf-8"),
+            html_name,
+            "text/html",
+        )
+        md = materials.markdown(
+            company=company, track_url=track, promo=promo, poster_url=poster_url
+        )
+        notion_url = ""
+        notion_error = ""
+        if notionmod.configured():
+            try:
+                notion_url = notionmod.create_mp_page(
+                    company=company,
+                    track_url=track,
+                    promo=promo,
+                    poster_url=poster_url,
+                )
+            except Exception as e:
+                notion_error = str(e)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    finally:
+        _busy_release(token)
+    return JSONResponse(
+        {
+            "title": materials.page_title(company),
+            "markdown": md,
+            "poster_url": poster_url,
+            "html_url": html_url,
+            "notion_url": notion_url,
+            "notion_error": notion_error,
+            "hint": "" if notion_url else notionmod.MISSING,
+        }
+    )
 
 
 @app.get("/posters")
