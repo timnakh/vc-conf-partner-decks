@@ -662,10 +662,36 @@ def batch_share(job_id: str, body: PackBody):
             if not csv_name.endswith(".csv"):
                 csv_name = "links.csv"
             extras: dict[int, dict] = {}
+            poster_job = (folder or "").startswith("poster")
             for item in todo:
                 meta = item.get("meta") or {}
+                extra: dict = {}
                 if meta.get("url"):
-                    extras[int(item["row_index"])] = {"track_url": meta["url"]}
+                    extra["track_url"] = meta["url"]
+                if poster_job:
+                    company = meta.get("company") or item.get("name") or "partner"
+                    poster_url = urls.get(int(item["row_index"])) or ""
+                    html = materials.html_page(
+                        company=company,
+                        track_url=meta.get("url") or "",
+                        promo=meta.get("promo") or "",
+                        poster_url=poster_url,
+                    )
+                    html_name = f"{company} — materials.html"
+                    extra["materials_url"] = store.put_file(
+                        store.object_key(html_name, folder),
+                        html.encode("utf-8"),
+                        html_name,
+                        "text/html",
+                    )
+                    extra["markdown"] = materials.markdown(
+                        company=company,
+                        track_url=meta.get("url") or "",
+                        promo=meta.get("promo") or "",
+                        poster_url=poster_url,
+                    )
+                if extra:
+                    extras[int(item["row_index"])] = extra
             _set_job(
                 job_id,
                 share_status="done",

@@ -308,7 +308,7 @@
             <label for="p-md">Markdown — вставь в пустую страницу Notion</label>
             <textarea class="md" id="p-md" readonly></textarea>
           </div>
-          <p class="note" id="p-notion-note">Соберёт текст как в прошлом году (пост + постер + ссылка + промо). Без Notion API — страница на R2 и markdown для вставки.</p>
+          <p class="note" id="p-notion-note">4 поста + план выхода (4 / 3 / опоздал в декабре / в январе). Newsletters — suggested weeks, LinkedIn — вт–чт утро ET. Без Notion API: HTML и markdown.</p>
         </div>
       </form>
     </section>
@@ -343,7 +343,7 @@
           <div class="carousel" id="p-gal-track"></div>
           <div class="actions">
             <button type="button" id="p-batch-download">Скачать выбранные PNG</button>
-            <button type="button" class="ghost" id="p-batch-share">Сделать ссылки и скачать CSV</button>
+            <button type="button" class="ghost" id="p-batch-share">Ссылки, материалы и CSV</button>
           </div>
         </div>
       </form>
@@ -894,7 +894,7 @@
               return;
             }
             downloadBlob(await dl.blob(), filenameFrom(dl, "poster-links.csv"));
-            ok.textContent = "CSV со ссылками скачан. Колонка pdf_url — PNG, track_url — регистрация с UTM.";
+            ok.textContent = "CSV скачан: pdf_url (PNG), track_url, materials_url (страница с 4 постами), markdown.";
             bar.style.width = "100%";
             label.textContent = "Готово";
             return;

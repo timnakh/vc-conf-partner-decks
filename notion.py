@@ -8,15 +8,7 @@ import re
 import urllib.error
 import urllib.request
 
-from materials import (
-    BULLETS,
-    CLOSING,
-    HEADLINE,
-    LEAD,
-    intro,
-    page_title,
-    promo_line,
-)
+from materials import notion_children, page_title
 
 VERSION = "2022-06-28"
 MISSING = (
@@ -40,78 +32,10 @@ def _uuid(raw: str) -> str:
     return f"{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
 
 
-def _text(content: str, link: str | None = None) -> dict:
-    node = {"type": "text", "text": {"content": content[:2000]}}
-    if link:
-        node["text"]["link"] = {"url": link}
-    return node
-
-
 def create_mp_page(*, company: str, track_url: str, promo: str, poster_url: str) -> str:
     if not configured():
         raise RuntimeError(MISSING)
     parent = _uuid(os.environ["NOTION_PARENT_PAGE_ID"])
-    children: list[dict] = [
-        {
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {"rich_text": [_text(intro(company))]},
-        },
-        {
-            "object": "block",
-            "type": "heading_2",
-            "heading_2": {"rich_text": [_text("Template:")]},
-        },
-        {
-            "object": "block",
-            "type": "heading_3",
-            "heading_3": {"rich_text": [_text(HEADLINE)]},
-        },
-        {
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {"rich_text": [_text(LEAD)]},
-        },
-    ]
-    for b in BULLETS:
-        children.append(
-            {
-                "object": "block",
-                "type": "bulleted_list_item",
-                "bulleted_list_item": {"rich_text": [_text(b)]},
-            }
-        )
-    children.append(
-        {
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {"rich_text": [_text(CLOSING)]},
-        }
-    )
-    if poster_url:
-        children.append(
-            {
-                "object": "block",
-                "type": "image",
-                "image": {"type": "external", "external": {"url": poster_url}},
-            }
-        )
-    children.append(
-        {
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {
-                "rich_text": [_text("Register for free", track_url)]
-            },
-        }
-    )
-    children.append(
-        {
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {"rich_text": [_text(promo_line(promo))]},
-        }
-    )
     payload = {
         "parent": {"page_id": parent},
         "icon": {"type": "emoji", "emoji": "🎯"},
@@ -120,7 +44,12 @@ def create_mp_page(*, company: str, track_url: str, promo: str, poster_url: str)
                 "title": [{"type": "text", "text": {"content": page_title(company)}}]
             }
         },
-        "children": children,
+        "children": notion_children(
+            company=company,
+            track_url=track_url,
+            promo=promo,
+            poster_url=poster_url,
+        ),
     }
     if poster_url:
         payload["cover"] = {"type": "external", "external": {"url": poster_url}}
