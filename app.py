@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import io
+import tempfile
 import threading
 import uuid
 from typing import Optional
@@ -9,7 +10,8 @@ from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from starlette.background import BackgroundTask
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
@@ -21,6 +23,7 @@ from fill import (
     fill_deck,
     fill_from_csv,
     get_template,
+    item_payload,
     links_csv,
     load_catalog,
     pack_selected,
@@ -666,7 +669,7 @@ def batch_share(job_id: str, body: PackBody):
                 _busy_progress(n - 1, len(todo))
                 key = store.object_key(item["filename"], folder)
                 urls[int(item["row_index"])] = store.put_file(
-                    key, item["pdf"], item["filename"], content_type
+                    key, item_payload(item), item["filename"], content_type
                 )
                 _set_job(job_id, share_done=n)
                 _busy_progress(n, len(todo))
@@ -743,17 +746,23 @@ def batch_pack(job_id: str, body: PackBody):
         job = JOBS.get(job_id)
         if not job or job["status"] != "done":
             raise HTTPException(404, "ещё не готово")
-        zip_bytes = pack_selected(
-            job.get("previews") or [],
-            body.skip,
-            job.get("fieldnames") or [],
-            job.get("failed") or [],
-        )
+        previews = list(job.get("previews") or [])
+        fieldnames = list(job.get("fieldnames") or [])
+        failed = list(job.get("failed") or [])
         name = job["zip_name"]
-    return Response(
-        zip_bytes,
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    tmp.close()
+    dest = Path(tmp.name)
+    try:
+        pack_selected(previews, body.skip, fieldnames, failed, dest=dest)
+    except Exception:
+        dest.unlink(missing_ok=True)
+        raise
+    return FileResponse(
+        dest,
         media_type="application/zip",
         headers={"Content-Disposition": _disposition(name)},
+        background=BackgroundTask(dest.unlink, missing_ok=True),
     )
 
 

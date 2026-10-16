@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import gc
 import io
 import json
 from pathlib import Path
@@ -18,6 +19,7 @@ from fill import (
     _place_mark,
     _wrap_text,
     ascii_filename,
+    spill_payload,
 )
 from names import display_name
 
@@ -309,13 +311,15 @@ def fill_posters_from_csv(
             {
                 "name": company,
                 "jpeg": preview,
-                "pdf": data,
+                "pdf_path": spill_payload(data, ".png"),
                 "filename": filename,
                 "row": original,
                 "row_index": i - 1,
                 "meta": meta,
             }
         )
+        del data
+        gc.collect()
         if on_progress:
             on_progress(i, total, company)
     if on_progress:

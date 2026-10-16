@@ -408,6 +408,22 @@
       return t;
     }
 
+    async function readJson(res) {
+      const t = await res.text();
+      if (!t || /^\s*</.test(t)) {
+        throw new Error(
+          "Сервер упал по памяти и перезапустился. Подожди ~30 сек и собери CSV снова — прогресс этой сессии не сохранился."
+        );
+      }
+      try {
+        return JSON.parse(t);
+      } catch (e) {
+        throw new Error(
+          "Сервер вернул обрыв вместо JSON. Подожди ~30 сек, обнови страницу и запусти CSV ещё раз."
+        );
+      }
+    }
+
     function downloadBlob(blob, filename) {
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -557,7 +573,7 @@
           err.textContent = await errorText(started);
           return;
         }
-        const startedShare = await started.json();
+        const startedShare = await readJson(started);
         if (startedShare.token) {
           queueToken = startedShare.token;
           sessionStorage.setItem("queueToken", queueToken);
@@ -565,7 +581,7 @@
         for (;;) {
           await new Promise((r) => setTimeout(r, 400));
           const st = await fetch("/batch/" + batchJob);
-          const job = await st.json();
+          const job = await readJson(st);
           const total = job.share_total || 0;
           const done = job.share_done || 0;
           bar.style.width = (total ? Math.max(4, Math.round((done / total) * 100)) : 4) + "%";
@@ -620,7 +636,7 @@
           err.textContent = await errorText(started);
           return;
         }
-        const startedData = await started.json();
+        const startedData = await readJson(started);
         const { job_id } = startedData;
         batchJob = job_id;
         if (startedData.token) {
@@ -630,7 +646,7 @@
         for (;;) {
           await new Promise((r) => setTimeout(r, 400));
           const st = await fetch("/batch/" + job_id);
-          const job = await st.json();
+          const job = await readJson(st);
           const pct = job.total ? Math.max(4, Math.round((job.done / job.total) * 100)) : 4;
           bar.style.width = pct + "%";
           label.textContent = job.total
@@ -875,7 +891,7 @@
           err.textContent = await errorText(started);
           return;
         }
-        const startedShare = await started.json();
+        const startedShare = await readJson(started);
         if (startedShare.token) {
           queueToken = startedShare.token;
           sessionStorage.setItem("queueToken", queueToken);
@@ -883,7 +899,7 @@
         for (;;) {
           await new Promise((r) => setTimeout(r, 400));
           const st = await fetch("/batch/" + posterJob);
-          const job = await st.json();
+          const job = await readJson(st);
           const total = job.share_total || 0;
           const done = job.share_done || 0;
           bar.style.width = (total ? Math.max(4, Math.round((done / total) * 100)) : 4) + "%";
@@ -939,7 +955,7 @@
           err.textContent = await errorText(started);
           return;
         }
-        const startedData = await started.json();
+        const startedData = await readJson(started);
         const { job_id } = startedData;
         posterJob = job_id;
         if (startedData.token) {
@@ -949,7 +965,7 @@
         for (;;) {
           await new Promise((r) => setTimeout(r, 400));
           const st = await fetch("/batch/" + job_id);
-          const job = await st.json();
+          const job = await readJson(st);
           const pct = job.total ? Math.max(4, Math.round((job.done / job.total) * 100)) : 4;
           bar.style.width = pct + "%";
           label.textContent = job.total

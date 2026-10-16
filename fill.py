@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import csv
+import gc
 import io
 import json
+import os
 import re
 import shutil
+import tempfile
 import zipfile
 from copy import deepcopy
 from pathlib import Path
@@ -28,6 +31,27 @@ USER_FONTS = Path.home() / "Library" / "Fonts"
 
 SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 SAFE_FILE = re.compile(r'[<>:"/\\|?*\x00-\x1f]+')
+SPILL_DIR = Path(tempfile.gettempdir()) / "vc-conf-fills"
+
+
+def spill_payload(data: bytes, suffix: str) -> str:
+    SPILL_DIR.mkdir(parents=True, exist_ok=True)
+    fd, path = tempfile.mkstemp(suffix=suffix, prefix="vc-", dir=SPILL_DIR)
+    try:
+        os.write(fd, data)
+    finally:
+        os.close(fd)
+    return path
+
+
+def item_payload(item: dict) -> bytes:
+    data = item.get("pdf")
+    if data:
+        return data
+    path = item.get("pdf_path")
+    if path:
+        return Path(path).read_bytes()
+    raise FileNotFoundError("файл сборки уже стёрт — собери ещё раз")
 DEFAULT_NAME_PATTERN = "VC Conf 2027 — {name}.pdf"
 
 
@@ -348,19 +372,26 @@ def fill_deck(
         raise ValueError("укажи имя или название компании")
 
     prs = Presentation(str(template or DEFAULT_TEMPLATE))
-    jpeg_pages: list[bytes] = []
+    tmpdir = tempfile.mkdtemp(prefix="vcdeck-")
+    jpeg_paths: list[str] = []
     preview = b""
     try:
-        for i, slide in enumerate(prs.slides):
-            im = _slide_picture(slide)
-            if i == 0:
-                im = _overlay(im, company, logo, spec)
-                preview = partner_preview(im, spec)
-            jpeg_pages.append(_jpeg_bytes(im))
-            im.close()
+        try:
+            for i, slide in enumerate(prs.slides):
+                im = _slide_picture(slide)
+                if i == 0:
+                    im = _overlay(im, company, logo, spec)
+                    preview = partner_preview(im, spec)
+                page = Path(tmpdir) / f"{i:03d}.jpg"
+                page.write_bytes(_jpeg_bytes(im))
+                jpeg_paths.append(str(page))
+                im.close()
+        finally:
+            del prs
+        return img2pdf.convert(jpeg_paths), preview
     finally:
-        del prs
-    return img2pdf.convert(jpeg_pages), preview
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        gc.collect()
 
 
 def _name_keys(company: str) -> list[str]:
@@ -523,12 +554,14 @@ def fill_from_csv(
             {
                 "name": company,
                 "jpeg": preview,
-                "pdf": data,
+                "pdf_path": spill_payload(data, ".pdf"),
                 "filename": filename,
                 "row": original,
                 "row_index": i - 1,
             }
         )
+        del data
+        gc.collect()
         if on_progress:
             on_progress(i, total, company)
 
@@ -542,27 +575,43 @@ def pack_selected(
     skip: list[int],
     fieldnames: list[str],
     failed: list[dict] | None = None,
+    dest: Path | None = None,
 ) -> bytes:
     skip_set = set(skip)
-    zip_buf = io.BytesIO()
-    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for i, item in enumerate(previews):
-            if i in skip_set:
-                continue
-            zf.writestr(item["filename"], item["pdf"])
-        rejected = [previews[i]["row"] for i in skip if 0 <= i < len(previews)]
-        for item in failed or []:
-            if item.get("row"):
-                rejected.append(item["row"])
-        if rejected:
-            cols = fieldnames or list(rejected[0].keys())
-            buf = io.StringIO()
-            w = csv.DictWriter(buf, fieldnames=cols, extrasaction="ignore")
-            w.writeheader()
-            w.writerows(rejected)
-            zf.writestr("needs_review.csv", buf.getvalue().encode("utf-8-sig"))
-    zip_buf.seek(0)
-    return zip_buf.getvalue()
+    sink: io.BufferedIOBase
+    if dest is not None:
+        sink = dest.open("wb")
+    else:
+        sink = io.BytesIO()
+    try:
+        with zipfile.ZipFile(sink, "w") as zf:
+            for i, item in enumerate(previews):
+                if i in skip_set:
+                    continue
+                zf.writestr(
+                    item["filename"],
+                    item_payload(item),
+                    compress_type=zipfile.ZIP_STORED,
+                )
+            rejected = [previews[i]["row"] for i in skip if 0 <= i < len(previews)]
+            for item in failed or []:
+                if item.get("row"):
+                    rejected.append(item["row"])
+            if rejected:
+                cols = fieldnames or list(rejected[0].keys())
+                buf = io.StringIO()
+                w = csv.DictWriter(buf, fieldnames=cols, extrasaction="ignore")
+                w.writeheader()
+                w.writerows(rejected)
+                zf.writestr("needs_review.csv", buf.getvalue().encode("utf-8-sig"))
+        if dest is not None:
+            return b""
+        assert isinstance(sink, io.BytesIO)
+        sink.seek(0)
+        return sink.getvalue()
+    finally:
+        if dest is not None:
+            sink.close()
 
 
 def links_csv(
