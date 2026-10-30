@@ -143,13 +143,15 @@ def _round_mask(size: int, radius: int) -> Image.Image:
 def _trim_mark(im: Image.Image) -> Image.Image:
     rgba = im.convert("RGBA")
     r, g, b, a = rgba.split()
-    opaque = a.point(lambda p: 255 if p > 16 else 0)
+    opaque = a.point(lambda p: 255 if p > 12 else 0)
+    # Drop near-white padding around a coloured mark. A white-on-transparent
+    # mark has no coloured pixels, so we fall back to the alpha bbox.
     not_white = ImageChops.lighter(
         ImageChops.lighter(
-            r.point(lambda p: 255 if p < 252 else 0),
-            g.point(lambda p: 255 if p < 252 else 0),
+            r.point(lambda p: 255 if p < 242 else 0),
+            g.point(lambda p: 255 if p < 242 else 0),
         ),
-        b.point(lambda p: 255 if p < 252 else 0),
+        b.point(lambda p: 255 if p < 242 else 0),
     )
     mask = ImageChops.multiply(opaque, not_white)
     bbox = mask.getbbox()
@@ -157,11 +159,7 @@ def _trim_mark(im: Image.Image) -> Image.Image:
         bbox = opaque.getbbox() or rgba.getbbox()
     if not bbox:
         return rgba
-    pad = max(1, round(max(bbox[2] - bbox[0], bbox[3] - bbox[1]) * 0.06))
-    x0 = max(0, bbox[0] - pad)
-    y0 = max(0, bbox[1] - pad)
-    x1 = min(rgba.width, bbox[2] + pad)
-    y1 = min(rgba.height, bbox[3] + pad)
+    x0, y0, x1, y1 = bbox
     return rgba.crop((x0, y0, x1, y1))
 
 

@@ -17,6 +17,7 @@ from fill import (
     _logo_by_company,
     _photo_from_row,
     _place_mark,
+    _trim_mark,
     _wrap_text,
     ascii_filename,
     spill_payload,
@@ -77,7 +78,7 @@ def apply_utm(url: str, company: str) -> str:
         raw = "https://" + raw
     parsed = urlparse(raw)
     slug = ascii_filename(display_name(company) or company).rsplit(".", 1)[0]
-    slug = slug.replace("-", "_")[:40] or "partner"
+    slug = slug.replace("-", "_")[:40].lower() or "partner"
     utm = {
         "utm_source": slug,
         "utm_medium": "media_partner",
@@ -92,6 +93,8 @@ def apply_utm(url: str, company: str) -> str:
         query = f"{raw_q}&{extra}" if extra else raw_q
         return urlunparse(parsed._replace(query=query))
     query = dict(parse_qsl(raw_q, keep_blank_values=True))
+    if query.get("utm_source"):
+        query["utm_source"] = query["utm_source"].lower()
     for key, val in utm.items():
         query.setdefault(key, val)
     return urlunparse(parsed._replace(query=urlencode(query)))
@@ -210,8 +213,12 @@ def _fill_kind(kind: str, name: str, shown_url: str, logo) -> Image.Image:
     if logo is not None:
         if hasattr(logo, "seek"):
             logo.seek(0)
-        inner = max(8, round(lw * 0.74))
-        mark = _place_mark(Image.open(logo), inner, inner // 2)
+        src = Image.open(logo)
+        trimmed = _trim_mark(src)
+        ratio = trimmed.width / max(trimmed.height, 1)
+        frac = 0.88 if ratio >= 2 else 0.74
+        inner = max(8, round(lw * frac))
+        mark = _place_mark(trimmed, inner, inner // 2)
         im.paste(mark, (lx + (lw - inner) // 2, ly + (lw - inner) // 2), mark)
         draw = ImageDraw.Draw(im)
 

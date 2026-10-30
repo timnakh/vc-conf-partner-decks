@@ -33,6 +33,7 @@ def _ctx(
     return {
         "partner": partner,
         "link": link,
+        "code_url": _code_url(link),
         "code": code,
         "dates": dates,
         "poster_url": poster_url or "",
@@ -41,8 +42,19 @@ def _ctx(
     }
 
 
+def _code_url(url: str) -> str:
+    # Notion autolinks https://… inside a code block and copies it as <https://…>.
+    # A zero-width space after :// keeps the visible URL intact and copy-safe.
+    if url.startswith("https://"):
+        return "https://\u200b" + url[len("https://") :]
+    if url.startswith("http://"):
+        return "http://\u200b" + url[len("http://") :]
+    return url
+
+
 def copies(c: dict) -> list[dict]:
     p, code, link = c["partner"], c["code"], c["link"]
+    li = c["code_url"]
     return [
         {
             "title": "Post 1: Announcement",
@@ -66,7 +78,7 @@ def copies(c: dict) -> list[dict]:
                 "→ Day 2: 8-min 1:1 pitch calls with matched investors\n"
                 "→ Day 3: family office & LP insights + 10+ rooms led by FOs & LPs\n\n"
                 f"Investors get a free 3-day pass. Founders: code {code} for 10% off pitch tickets.\n\n"
-                f"Register free: {link}"
+                f"Register free: {li}"
             ),
             "note": "Attach the square poster.",
         },
@@ -86,7 +98,7 @@ def copies(c: dict) -> list[dict]:
                 "That's part of the speaker lineup at the free Virtual VC Conf, Jan 27–29. "
                 "In September, 1,300+ investors joined and founders got 4,270 1:1 matches.\n\n"
                 f"We're a media partner this year. Day 1 livestream is free, and founders get 10% off pitch tickets with code {code}.\n\n"
-                f"Register free: {link}"
+                f"Register free: {li}"
             ),
         },
         {
@@ -104,7 +116,7 @@ def copies(c: dict) -> list[dict]:
                 "On Jan 28, founders at the free Virtual VC Conf get 8-minute 1:1 calls with investors matched by sector, stage and geography.\n\n"
                 "The day before, 100+ VCs & angels lead the panels and breakout rooms. Free to watch.\n\n"
                 f"Founders: code {code} for 10% off pitch tickets.\n"
-                f"Register free: {link}"
+                f"Register free: {li}"
             ),
         },
         {
@@ -124,7 +136,7 @@ def copies(c: dict) -> list[dict]:
                 "→ Day 2: 1:1 pitch calls with matched investors\n"
                 "→ Day 3: family offices & LPs\n\n"
                 f"1:1 pitch slots are limited. Founders: code {code} for 10% off.\n\n"
-                f"Register free: {link}"
+                f"Register free: {li}"
             ),
         },
     ]
@@ -157,6 +169,9 @@ def markdown(
         "",
         f"Great to have {p} on board as a media partner!",
         "",
+        f"**Your link:** {link}",
+        f"**Your code:** {c['code']}",
+        "",
         f"**Planned posting dates:** {c['dates']}",
         "",
         "Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:",
@@ -176,7 +191,12 @@ def markdown(
         lines += [f"![Poster]({c['poster_url']})", ""]
     if c["poster_square_url"]:
         lines += [f"![Poster for LinkedIn]({c['poster_square_url']})", ""]
-    lines += ["---", ""]
+    lines += [
+        "Click a poster → ⋯ → Download",
+        "",
+        "---",
+        "",
+    ]
     for item in copies(c):
         lines += [
             f"## {item['title']}",
@@ -297,6 +317,8 @@ def html_page(
 <main>
   <h1>{esc(page_title(c["partner"]))}</h1>
   <p>Great to have {p} on board as a media partner!</p>
+  <p><strong>Your link:</strong> <a href="{link}">{link}</a><br />
+  <strong>Your code:</strong> <code>{code}</code></p>
   <p><strong>Planned posting dates:</strong> {esc(c["dates"])}</p>
   <p>Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:</p>
   <ul>
@@ -309,6 +331,7 @@ def html_page(
   <p>Feel free to adapt the copy to your voice. Just keep the word “free” and your link: they drive most of the clicks.</p>
   <p>Posters: vertical for newsletters, square for LinkedIn.</p>
   {imgs}
+  <p>Click a poster → ⋯ → Download</p>
   <hr />
   {''.join(posts)}
 </main>
@@ -360,10 +383,14 @@ def notion_children(
         return {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [rt(text)]}}
 
     def code(text: str) -> dict:
+        node = {
+            "type": "text",
+            "text": {"content": (text or "")[:2000], "link": None},
+        }
         return {
             "object": "block",
             "type": "code",
-            "code": {"rich_text": [rt(text[:2000])], "language": "plain text"},
+            "code": {"rich_text": [node], "language": "plain text"},
         }
 
     def bullet(text: str) -> dict:
@@ -386,6 +413,8 @@ def notion_children(
     p = c["partner"]
     kids = [
         para(rt(f"Great to have {p} on board as a media partner!")),
+        para(rt("Your link: ", bold=True), rt(c["link"])),
+        para(rt("Your code: ", bold=True), rt(c["code"])),
         para(rt("Planned posting dates: ", bold=True), rt(c["dates"])),
         para(rt("Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:")),
         bullet("by Nov 20 → Post 1"),
@@ -400,6 +429,7 @@ def notion_children(
         kids.append(image(c["poster_url"]))
     if c["poster_square_url"]:
         kids.append(image(c["poster_square_url"]))
+    kids.append(para(rt("Click a poster → ⋯ → Download")))
     kids.append(divider())
     for item in copies(c):
         kids.append(h2(item["title"]))
