@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 from urllib.parse import quote
 
@@ -36,6 +37,15 @@ def object_key(filename: str, folder: str = "decks") -> str:
     return f"vc-conf-2027/{slug}/{ascii_filename(filename)}"
 
 
+def versioned_key(key: str, data: bytes) -> str:
+    digest = hashlib.sha1(data).hexdigest()[:10]
+    name = key.rsplit("/", 1)[-1]
+    if "." in name:
+        base, ext = key.rsplit(".", 1)
+        return f"{base}-{digest}.{ext}"
+    return f"{key}-{digest}"
+
+
 def public_url(key: str) -> str:
     return public_base() + "/" + quote(key, safe="/-._~")
 
@@ -55,6 +65,7 @@ def put_file(key: str, data: bytes, filename: str, content_type: str) -> str:
         region_name=os.environ.get("S3_REGION") or "auto",
         config=Config(signature_version="s3v4"),
     )
+    key = versioned_key(key, data)
     client.put_object(
         Bucket=os.environ["S3_BUCKET"].strip(),
         Key=key,
