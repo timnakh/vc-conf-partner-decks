@@ -39,6 +39,7 @@ def create_mp_page(
     promo: str,
     poster_url: str,
     poster_square_url: str = "",
+    poster_banner_url: str = "",
     first_name: str = "",
     posting_dates: str = "",
 ) -> str:
@@ -59,12 +60,14 @@ def create_mp_page(
             promo=promo,
             poster_url=poster_url,
             poster_square_url=poster_square_url,
+            poster_banner_url=poster_banner_url,
             first_name=first_name,
             posting_dates=posting_dates,
         ),
     }
-    if poster_url:
-        payload["cover"] = {"type": "external", "external": {"url": poster_url}}
+    cover = poster_banner_url or poster_url
+    if cover:
+        payload["cover"] = {"type": "external", "external": {"url": cover}}
     data = json.dumps(payload).encode()
     req = urllib.request.Request(
         "https://api.notion.com/v1/pages",

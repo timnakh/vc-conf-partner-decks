@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VC Conf 2027 — Media Partner email banner (1200x600)</title>
+<link rel="stylesheet" href="poster.css">
+<style>
+  .poster.banner { height: 600px; width: 1200px;
+    background:
+      radial-gradient(ellipse 760px 560px at 100% 0%, #CFE6FF 0%, rgba(238,245,254,0) 100%),
+      radial-gradient(ellipse 520px 380px at 0% 100%, #FFF1D6 0%, rgba(238,245,254,0) 100%),
+      var(--bg); }
+  .left { position: absolute; left: 56px; top: 48px; width: 640px; }
+  .row { display: flex; align-items: center; }
+  .b-free { height: 38px; padding: 0 14px; font-size: 26px; border-radius: 9px; }
+  .b-sub { font-size: 21px; margin-left: 14px; font-weight: 700; letter-spacing: -0.005em; line-height: 1; }
+  .b-title { margin-top: 26px; font-size: 68px; font-weight: 800; letter-spacing: -0.055em; line-height: 1; white-space: nowrap; }
+  .b-lead { margin-top: 14px; font-size: 28px; font-weight: 800; letter-spacing: -0.04em; line-height: 34px; }
+  .b-date { margin-top: 24px; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+  .b-times { margin-top: 12px; font-size: 18px; }
+  .b-partner { margin-top: 22px; }
+  .b-ring { width: 76px; height: 76px; border-radius: 50%; background: var(--grad); position: relative; flex: none; }
+  .b-ring .logo-circle { left: 4px; top: 4px; width: 68px; height: 68px; }
+  .b-company { margin-left: 16px; font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; white-space: nowrap; }
+  .b-pill { margin-left: 14px; height: 32px; padding: 0 16px 0 12px; font-size: 17px; }
+  .b-cta { margin-top: 24px; display: inline-flex; align-items: center; height: 62px; padding: 0 34px; border-radius: 999px; background: var(--grad); color: #fff; font-size: 25px; font-weight: 800; letter-spacing: -0.01em; box-shadow: 0 8px 24px rgba(31,96,224,0.25); }
+  .b-link { margin-left: 20px; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+
+  .right { position: absolute; right: 56px; top: 56px; width: 420px; display: flex; flex-direction: column; gap: 12px; }
+  .spk { display: flex; align-items: center; height: 112px; padding: 0 20px; background: #fff; border: 2px solid var(--line); border-radius: 20px; }
+  .spk img { width: 76px; height: 76px; flex: none; }
+  .spk .txt { margin-left: 18px; }
+  .spk b { display: block; font-size: 23px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+  .spk span { display: block; margin-top: 8px; font-size: 17px; font-weight: 600; color: var(--muted); line-height: 1; }
+  .spk em { font-style: normal; font-weight: 800; }
+</style>
+</head>
+<body>
+<!--
+  Email banner for newsletters (horizontal, 1200x600).
+  Placeholders: {{company}}, {{logo_url}} (empty = white circle), {{reg_link}} (e.g. vcconf.com?120).
+  Ask partners to link the whole image to their registration link.
+-->
+<div class="poster banner" id="poster">
+  <div class="left">
+    <div class="row">
+      <div class="free b-free">Free</div>
+      <div class="b-sub">Day 1 livestream · 3-day pass for investors</div>
+    </div>
+    <div class="b-title grad-text">Virtual VC Conf 2027</div>
+    <div class="b-lead">Meet 1,000+ VCs, angels, family offices,<br>LPs &amp; startups</div>
+    <div class="b-date">January 27–29, 2027</div>
+    <div class="times b-times">
+      <b>8 AM</b><i style="font-size:13px; margin-left:7px;">PT</i><span class="sep" style="width:5px; height:5px; margin:0 9px;"></span>
+      <b>11 AM</b><i style="font-size:13px; margin-left:7px;">ET</i><span class="sep" style="width:5px; height:5px; margin:0 9px;"></span>
+      <b>4 PM</b><i style="font-size:13px; margin-left:7px;">GMT</i><span class="sep" style="width:5px; height:5px; margin:0 9px;"></span>
+      <b>5 PM</b><i style="font-size:13px; margin-left:7px;">CET</i><span class="sep" style="width:5px; height:5px; margin:0 9px;"></span>
+      <b class="online">100% online</b>
+    </div>
+    <div class="row b-partner">
+      <div class="b-ring"><div class="logo-circle"><img src="{{logo_url}}" alt=""></div></div>
+      <div style="margin-left:16px;">
+        <div class="b-company fit-b" style="margin-left:0;">{{company}}</div>
+        <div class="pill b-pill" style="margin:10px 0 0 0; display:inline-flex;"><span class="dot" style="width:10px; height:10px; margin-right:8px;"></span>Media Partner</div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="b-cta">Register for free</div>
+      <div class="b-link grad-text" style="margin-top:24px;">{{reg_link}}</div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="spk"><img src="assets/faces/justin-stebbins.png" alt=""><div class="txt"><b>Justin Stebbins</b><span>Northgate · <em class="grad-text">$5B+ AUM</em></span></div></div>
+    <div class="spk"><img src="assets/faces/yaron-valler.png" alt=""><div class="txt"><b>Yaron Valler</b><span>Target Global · <em class="grad-text">$3B+ AUM</em></span></div></div>
+    <div class="spk"><img src="assets/faces/sophie-buonassisi.png" alt=""><div class="txt"><b>Sophie Buonassisi</b><span>GTMfund · <em class="grad-text">350+ LPs</em></span></div></div>
+    <div class="spk"><img src="assets/faces/gene-teare.png" alt=""><div class="txt"><b>Gené Teare</b><span>Crunchbase</span></div></div>
+  </div>
+</div>
+<script>
+  // Long company names: shrink to fit the left column.
+  (function () {
+    var el = document.querySelector('.fit-b'), size = 30;
+    while (el.getBoundingClientRect().right > 56 + 620 && size > 18) { size -= 1; el.style.fontSize = size + 'px'; }
+  })();
+</script>
+</body>
+</html>

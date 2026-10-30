@@ -61,6 +61,7 @@
     .preview-box .who { font-weight:700; margin: 0 0 8px; }
     .preview-box img.hero { width:100%; border-radius:16px; border:1px solid var(--line); background:#fffaf3; display:block; }
     .pair { display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start; }
+    .preview-box img.banner { margin-bottom:12px; }
     @media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
     textarea.dates {
       width:100%; min-height:72px; padding:11px 12px; border:1px solid #ead9b3;
@@ -309,13 +310,14 @@
         <div class="err" id="p-one-err"></div>
         <div class="preview-box" id="p-one-preview">
           <p class="who" id="p-one-preview-name"></p>
+          <img class="hero banner" id="p-one-preview-bn" alt="Баннер 1200×600" />
           <div class="pair">
             <img class="hero" id="p-one-preview-img" alt="Вертикальный постер" />
             <img class="hero" id="p-one-preview-sq" alt="Квадрат LinkedIn" />
           </div>
           <p class="meta-line" id="p-one-track"></p>
           <div class="actions">
-            <button type="button" id="p-one-download">Скачать оба PNG</button>
+            <button type="button" id="p-one-download">Скачать PNG</button>
             <button type="button" class="ghost" id="p-one-share">Сделать ссылку</button>
             <button type="button" class="ghost" id="p-notion">Подготовить страницу с материалами МП</button>
           </div>
@@ -332,7 +334,7 @@
             <textarea class="md" id="p-md" readonly></textarea>
             <button type="button" class="ghost" id="p-md-copy">Скопировать markdown</button>
           </div>
-          <p class="note" id="p-notion-note">Страница партнёра: даты, 4 текста, оба постера, промокод в копи.</p>
+          <p class="note" id="p-notion-note">Страница партнёра: даты, 4 текста, баннер + два постера, промокод в копи.</p>
         </div>
       </form>
     </section>
@@ -853,6 +855,7 @@
         document.getElementById("p-one-preview-name").textContent = data.name;
         document.getElementById("p-one-preview-img").src = data.preview;
         document.getElementById("p-one-preview-sq").src = data.preview_square || data.preview;
+        document.getElementById("p-one-preview-bn").src = data.preview_banner || data.preview;
         const bits = [];
         if (data.track_url) bits.push("UTM: " + data.track_url);
         if (data.promo) bits.push("код " + data.promo);

@@ -217,19 +217,24 @@ def _fill_kind(kind: str, name: str, shown_url: str, logo) -> Image.Image:
             y += (bbox[3] - bbox[1]) + spacing
 
     foot = spec["footer"]
-    cx0, cy0, cx1, cy1 = foot["cover"]
-    sample_y = max(0, int(cy0) - 6)
-    cover = im.getpixel((im.width // 2, sample_y))
-    draw.rectangle([cx0, cy0, cx1, cy1], fill=cover)
     size = int(foot["size"])
     font = _font("extrabold", size)
     tracking = float(foot["tracking"]) * size
+    y = float(foot["y"])
+    if foot.get("url_only"):
+        rgb = im.convert("RGB")
+        _draw_gradient_tracked(rgb, (float(foot["x"]), y), shown_url, font, tracking)
+        return rgb
+    cx0, cy0, cx1, cy1 = foot["cover"]
+    sample_y = max(0, int(cy0) - 6)
+    cover = im.getpixel((min(im.width - 1, int(cx0) + 8), sample_y))
+    draw.rectangle([cx0, cy0, cx1, cy1], fill=cover)
+    rgb = im.convert("RGB")
     prefix = "Register free: "
     full_w = _tracked_width(prefix + shown_url, font, tracking)
     x = (im.width - full_w) / 2
-    y = float(foot["y"])
+    draw = ImageDraw.Draw(rgb)
     end_x = _draw_tracked(draw, (x, y), prefix, font, INK, tracking)
-    rgb = im.convert("RGB")
     _draw_gradient_tracked(rgb, (end_x, y), shown_url, font, tracking)
     return rgb
 
@@ -253,6 +258,9 @@ def fill_poster(
     if logo is not None and hasattr(logo, "seek"):
         logo.seek(0)
     square = _fill_kind("square", name, shown_url, logo)
+    if logo is not None and hasattr(logo, "seek"):
+        logo.seek(0)
+    banner = _fill_kind("banner", name, shown_url, logo)
     meta = {
         "company": name,
         "url": final_url,
@@ -264,8 +272,10 @@ def fill_poster(
     return {
         "portrait": _png(portrait),
         "square": _png(square),
+        "banner": _png(banner),
         "preview": _preview(portrait, (410, 512)),
         "preview_square": _preview(square, (410, 410)),
+        "preview_banner": _preview(banner, (480, 240)),
         "meta": meta,
     }
 
@@ -344,15 +354,18 @@ def fill_posters_from_csv(
             continue
         filename = poster_filename("", company)
         square_name = f"VC Conf poster — {company} (LinkedIn).png"
+        banner_name = f"VC Conf banner — {company}.png"
         if filename in used:
             used[filename] += 1
             n = used[filename]
             filename = f"VC Conf poster — {company} ({n}).png"
             square_name = f"VC Conf poster — {company} (LinkedIn) ({n}).png"
+            banner_name = f"VC Conf banner — {company} ({n}).png"
         else:
             used[filename] = 1
         portrait_path = spill_payload(filled["portrait"], ".png")
         square_path = spill_payload(filled["square"], ".png")
+        banner_path = spill_payload(filled["banner"], ".png")
         previews.append(
             {
                 "name": company,
@@ -362,6 +375,7 @@ def fill_posters_from_csv(
                 "files": [
                     {"filename": filename, "pdf_path": portrait_path, "kind": "portrait"},
                     {"filename": square_name, "pdf_path": square_path, "kind": "square"},
+                    {"filename": banner_name, "pdf_path": banner_path, "kind": "banner"},
                 ],
                 "row": original,
                 "row_index": i - 1,

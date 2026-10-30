@@ -409,6 +409,7 @@ def poster_materials(fill_id: str):
             promo=promo,
             poster_url="",
             poster_square_url="",
+            poster_banner_url="",
             first_name=first_name,
             posting_dates=posting_dates,
         )
@@ -429,6 +430,7 @@ def poster_materials(fill_id: str):
         folder = item.get("template_id") or "poster-mp"
         poster_url = ""
         poster_square_url = ""
+        poster_banner_url = ""
         files = item.get("files") or []
         if files:
             for blob in files:
@@ -438,8 +440,11 @@ def poster_materials(fill_id: str):
                     blob["filename"],
                     blob.get("content_type") or "image/png",
                 )
-                if blob.get("kind") == "square":
+                kind = blob.get("kind")
+                if kind == "square":
                     poster_square_url = url
+                elif kind == "banner":
+                    poster_banner_url = url
                 else:
                     poster_url = url
         else:
@@ -455,6 +460,7 @@ def poster_materials(fill_id: str):
             promo=promo,
             poster_url=poster_url,
             poster_square_url=poster_square_url,
+            poster_banner_url=poster_banner_url,
             first_name=first_name,
             posting_dates=posting_dates,
         )
@@ -471,6 +477,7 @@ def poster_materials(fill_id: str):
             promo=promo,
             poster_url=poster_url,
             poster_square_url=poster_square_url,
+            poster_banner_url=poster_banner_url,
             first_name=first_name,
             posting_dates=posting_dates,
         )
@@ -484,6 +491,7 @@ def poster_materials(fill_id: str):
                     promo=promo,
                     poster_url=poster_url,
                     poster_square_url=poster_square_url,
+                    poster_banner_url=poster_banner_url,
                     first_name=first_name,
                     posting_dates=posting_dates,
                 )
@@ -499,6 +507,7 @@ def poster_materials(fill_id: str):
             "markdown": md,
             "poster_url": poster_url,
             "poster_square_url": poster_square_url,
+            "poster_banner_url": poster_banner_url,
             "html_url": html_url,
             "notion_url": notion_url,
             "notion_error": notion_error,
@@ -572,6 +581,7 @@ async def poster_fill(
         "filename": zip_name,
         "preview": filled["preview"],
         "preview_square": filled["preview_square"],
+        "preview_banner": filled["preview_banner"],
         "template_id": "poster-mp",
         "content_type": "application/zip",
         "meta": filled["meta"],
@@ -588,6 +598,12 @@ async def poster_fill(
                 "content_type": "image/png",
                 "kind": "square",
             },
+            {
+                "filename": f"VC Conf banner — {person}.png",
+                "pdf": filled["banner"],
+                "content_type": "image/png",
+                "kind": "banner",
+            },
         ],
     }
     return JSONResponse(
@@ -600,6 +616,8 @@ async def poster_fill(
             "preview": "data:image/jpeg;base64," + base64.b64encode(filled["preview"]).decode(),
             "preview_square": "data:image/jpeg;base64,"
             + base64.b64encode(filled["preview_square"]).decode(),
+            "preview_banner": "data:image/jpeg;base64,"
+            + base64.b64encode(filled["preview_banner"]).decode(),
         }
     )
 
@@ -703,6 +721,7 @@ def fill_share(fill_id: str):
             return {
                 "url": url,
                 "square_url": urls.get("square") or "",
+                "banner_url": urls.get("banner") or "",
                 "filename": item["filename"],
             }
         url = store.put_file(
@@ -758,6 +777,7 @@ def batch_share(job_id: str, body: PackBody):
                 blobs = item.get("files") or [item]
                 portrait_url = ""
                 square_url = ""
+                banner_url = ""
                 for blob in blobs:
                     put = store.put_file(
                         store.object_key(blob["filename"], folder),
@@ -765,12 +785,16 @@ def batch_share(job_id: str, body: PackBody):
                         blob["filename"],
                         blob.get("content_type") or content_type,
                     )
-                    if blob.get("kind") == "square":
+                    kind = blob.get("kind")
+                    if kind == "square":
                         square_url = put
+                    elif kind == "banner":
+                        banner_url = put
                     else:
                         portrait_url = put
-                urls[row_i] = portrait_url or square_url
+                urls[row_i] = portrait_url or square_url or banner_url
                 item["_square_url"] = square_url
+                item["_banner_url"] = banner_url
                 _set_job(job_id, share_done=n)
                 _busy_progress(n, len(todo))
             csv_name = zip_name.replace(".zip", "-links.csv")
@@ -787,12 +811,14 @@ def batch_share(job_id: str, body: PackBody):
                     company = meta.get("company") or item.get("name") or "partner"
                     poster_url = urls.get(int(item["row_index"])) or ""
                     poster_square_url = item.get("_square_url") or ""
+                    poster_banner_url = item.get("_banner_url") or ""
                     html = materials.html_page(
                         company=company,
                         track_url=meta.get("url") or "",
                         promo=meta.get("promo") or "",
                         poster_url=poster_url,
                         poster_square_url=poster_square_url,
+                        poster_banner_url=poster_banner_url,
                         first_name=meta.get("first_name") or "",
                         posting_dates=meta.get("posting_dates") or "",
                     )
@@ -804,12 +830,14 @@ def batch_share(job_id: str, body: PackBody):
                         "text/html",
                     )
                     extra["poster_square_url"] = poster_square_url
+                    extra["poster_banner_url"] = poster_banner_url
                     extra["markdown"] = materials.markdown(
                         company=company,
                         track_url=meta.get("url") or "",
                         promo=meta.get("promo") or "",
                         poster_url=poster_url,
                         poster_square_url=poster_square_url,
+                        poster_banner_url=poster_banner_url,
                         first_name=meta.get("first_name") or "",
                         posting_dates=meta.get("posting_dates") or "",
                     )

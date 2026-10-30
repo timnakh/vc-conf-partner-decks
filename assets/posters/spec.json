@@ -12,5 +12,19 @@
     "logo": {"x": 61, "y": 231, "w": 130},
     "name": {"x": 222, "y": 239.9, "width": 800, "max": 52, "min": 32, "tracking": -0.03},
     "footer": {"y": 1018.2, "size": 28, "tracking": -0.02, "cover": [0, 1006, 1080, 1076]}
+  },
+  "banner": {
+    "file": "banner.png",
+    "size": [1200, 600],
+    "logo": {"x": 60, "y": 368, "w": 68},
+    "name": {"x": 148, "y": 372, "width": 470, "max": 30, "min": 18, "tracking": -0.03},
+    "footer": {
+      "x": 339,
+      "y": 484,
+      "size": 22,
+      "tracking": -0.01,
+      "cover": [328, 476, 610, 522],
+      "url_only": true
+    }
   }
 }
