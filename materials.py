@@ -97,7 +97,7 @@ def copies(c: dict) -> list[dict]:
                 f"{p} is partnering with Virtual VC Conf: three days online with 1,000+ VCs, angels, family offices, LPs and startups.\n\n"
                 "- **Attend for free** and watch Day 1 panels with top VCs.\n"
                 "- **Get a pass with 1:1 pitch calls** if you want to pitch matched investors on Day 2.\n"
-                "- **Investors join free** for all three days.\n\n"
+                "- **Investors get a free 3-day pass** for taking 15 founder pitches on Day 2.\n\n"
                 "Day 1: VC panels + 25+ breakout rooms. Day 2: 1:1 pitch calls. Day 3: family office & LP insights.\n\n"
                 f"With code **{code}**, you get 10% off any pass.\n\n"
                 f"Register free at {link}"
@@ -108,7 +108,7 @@ def copies(c: dict) -> list[dict]:
                 "→ Day 1: VC panels + 25+ breakout rooms led by 100+ VCs & angels. Free livestream\n"
                 "→ Day 2: 8-min 1:1 pitch calls with matched investors\n"
                 "→ Day 3: family office & LP insights + 10+ rooms led by 30+ FOs & LPs\n\n"
-                f"Investors get a free 3-day pass. Code {code} gives 10% off any pass.\n\n"
+                f"Investors: free 3-day pass for taking 15 founder pitches. Code {code} gives 10% off any pass.\n\n"
                 f"Register free: {li}"
             ),
             "note": "Attach the square poster.",
@@ -142,7 +142,7 @@ def copies(c: dict) -> list[dict]:
             "kicker": "ON JAN 28",
             "headline": "Raising this year? Pitch matched investors in 8-minute 1:1s",
             "newsletter": (
-                "At Virtual VC Conf, founders get 1:1 calls with investors matched by sector, stage and geography.\n\n"
+                "At Virtual VC Conf, founders get 1:1 calls with investors matched by sector, stage and geography. Investors can flag your deck in advance, and those meetings come first.\n\n"
                 "- **Attend for free** and watch Day 1 panels with top VCs.\n"
                 "- **Get a pass with 1:1 pitch calls** to get on investors' calendars on Day 2.\n\n"
                 f"With code **{code}**, you get 10% off any pass.\n\n"
@@ -151,7 +151,7 @@ def copies(c: dict) -> list[dict]:
             "linkedin": (
                 "Raising this year? Here's a fast way to get in front of investors.\n\n"
                 "On Jan 28, founders at the free Virtual VC Conf get 8-minute 1:1 calls with investors matched by sector, stage and geography.\n\n"
-                "The day before, 100+ VCs & angels lead 25+ breakout rooms. Day 1 is free to watch.\n\n"
+                "The day before, 100+ VCs & angels lead 25+ breakout rooms, and the Day 1 panels are free to watch.\n\n"
                 f"Code {code} gives 10% off any pass.\n"
                 f"Register free: {li}"
             ),
@@ -166,12 +166,12 @@ def copies(c: dict) -> list[dict]:
                 "The full program is live. 8 AM PT / 11 AM ET, 100% online.\n\n"
                 "- **Attend for free** and watch Day 1 panels with top VCs.\n"
                 "- **Get a pass with 1:1 pitch calls** to pitch matched investors on Day 2.\n"
-                "- **Investors join free** for all three days.\n\n"
+                "- **Investors get a free 3-day pass** for taking 15 founder pitches on Day 2.\n\n"
                 f"With code **{code}**, you get 10% off any pass.\n\n"
                 f"Register free at {link}"
             ),
             "linkedin": (
-                "Next week: Virtual VC Conf, and Day 1 is free to watch.\n\n"
+                "Next week: Virtual VC Conf, and the Day 1 panels are free to watch.\n\n"
                 "Jan 27–29, 8 AM PT / 11 AM ET, 100% online:\n"
                 "→ Day 1: VC panels + breakout rooms led by 100+ VCs & angels\n"
                 "→ Day 2: 1:1 pitch calls with matched investors\n"
