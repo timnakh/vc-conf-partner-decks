@@ -51,7 +51,7 @@ def copies(c: dict) -> list[dict]:
                 "Free Virtual VC Conf, Jan 27–29: meet 1,000+ VCs, angels, "
                 "family offices & LPs"
             ),
-            "body": (
+            "newsletter": (
                 f"{p} is a media partner of Virtual VC Conf 2027, three days, 100% online:\n\n"
                 "- **Day 1, Jan 27:** VC panels + networking in 25+ breakout rooms led by 100+ VCs & angels. Free livestream.\n"
                 "- **Day 2, Jan 28:** 8-minute 1:1 pitch calls with matched investors + investor-only networking.\n"
@@ -59,16 +59,33 @@ def copies(c: dict) -> list[dict]:
                 f"Investors get a free 3-day pass. Founders get 10% off pitch tickets with code {code}.\n\n"
                 f"Register free: {link}"
             ),
+            "linkedin": (
+                "We're a media partner of Virtual VC Conf 2027, and it's free to join 🎉\n\n"
+                "Jan 27–29, 100% online. Meet 1,000+ VCs, angels, family offices & LPs:\n\n"
+                "→ Day 1: VC panels + 25+ breakout rooms led by 100+ VCs & angels. Free livestream\n"
+                "→ Day 2: 8-min 1:1 pitch calls with matched investors\n"
+                "→ Day 3: family office & LP insights + 10+ rooms led by FOs & LPs\n\n"
+                f"Investors get a free 3-day pass. Founders: code {code} for 10% off pitch tickets.\n\n"
+                f"Register free: {link}"
+            ),
+            "note": "Attach the square poster.",
         },
         {
             "title": "Post 2: Speakers",
             "when": "Dec 1–11",
             "headline": "Who's speaking at the free Virtual VC Conf, Jan 27–29",
-            "body": (
+            "newsletter": (
                 "Speakers include Justin Stebbins (Northgate, $5B+ AUM), Yaron Valler (Target Global), "
                 "Gené Teare (Crunchbase), Sophie Buonassisi (GTMfund) and Douglas Sloan (Better Society Capital).\n\n"
                 "In September, 1,300+ investors joined and founders got 4,270 1:1 matches.\n\n"
                 f"Day 1 livestream is free. Founders get 10% off pitch tickets with code {code}.\n\n"
+                f"Register free: {link}"
+            ),
+            "linkedin": (
+                "Northgate, Target Global, Crunchbase, GTMfund, Better Society Capital.\n\n"
+                "That's part of the speaker lineup at the free Virtual VC Conf, Jan 27–29. "
+                "In September, 1,300+ investors joined and founders got 4,270 1:1 matches.\n\n"
+                f"We're a media partner this year. Day 1 livestream is free, and founders get 10% off pitch tickets with code {code}.\n\n"
                 f"Register free: {link}"
             ),
         },
@@ -76,10 +93,17 @@ def copies(c: dict) -> list[dict]:
             "title": "Post 3: New year, new round",
             "when": "Jan 5–14",
             "headline": "Raising this year? Pitch matched investors on Jan 28",
-            "body": (
+            "newsletter": (
                 "At the free Virtual VC Conf, founders get 8-minute 1:1 calls with investors matched "
                 "by sector, stage and geography. The day before, 100+ VCs & angels lead the panels and breakout rooms.\n\n"
                 f"Day 1 livestream is free. Founders get 10% off pitch tickets with code {code}.\n\n"
+                f"Register free: {link}"
+            ),
+            "linkedin": (
+                "Raising this year? Here's a fast way to get in front of investors.\n\n"
+                "On Jan 28, founders at the free Virtual VC Conf get 8-minute 1:1 calls with investors matched by sector, stage and geography.\n\n"
+                "The day before, 100+ VCs & angels lead the panels and breakout rooms. Free to watch.\n\n"
+                f"Founders: code {code} for 10% off pitch tickets.\n"
                 f"Register free: {link}"
             ),
         },
@@ -87,10 +111,19 @@ def copies(c: dict) -> list[dict]:
             "title": "Post 4: Last call",
             "when": "Jan 19–22",
             "headline": "Next week: free Virtual VC Conf, Jan 27–29",
-            "body": (
+            "newsletter": (
                 "The full program is live: VC panels on Day 1, 1:1 pitch calls on Day 2, family offices & LPs on Day 3. "
                 "8 AM PT / 11 AM ET, 100% online.\n\n"
                 f"Day 1 livestream is free. 1:1 pitch slots are limited. Founders get 10% off with code {code}.\n\n"
+                f"Register free: {link}"
+            ),
+            "linkedin": (
+                "Next week: Virtual VC Conf, and Day 1 is free to watch.\n\n"
+                "Jan 27–29, 8 AM PT / 11 AM ET, 100% online:\n"
+                "→ Day 1: VC panels + breakout rooms with 100+ VCs & angels\n"
+                "→ Day 2: 1:1 pitch calls with matched investors\n"
+                "→ Day 3: family offices & LPs\n\n"
+                f"1:1 pitch slots are limited. Founders: code {code} for 10% off.\n\n"
                 f"Register free: {link}"
             ),
         },
@@ -126,7 +159,7 @@ def markdown(
         "",
         f"**Planned posting dates:** {c['dates']}",
         "",
-        "Below is ready-to-use copy for each date. Use the post that matches your date:",
+        "Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:",
         "",
         "- by Nov 20 → Post 1",
         "- December → Post 2",
@@ -150,13 +183,22 @@ def markdown(
             "",
             f"*When:* {item['when']}",
             "",
+            "**Newsletter**",
+            "",
             f"**{item['headline']}**",
             "",
-            item["body"],
+            item["newsletter"],
             "",
-            "---",
+            "**LinkedIn**",
+            "",
+            "```",
+            item["linkedin"],
+            "```",
             "",
         ]
+        if item.get("note"):
+            lines += [item["note"], ""]
+        lines += ["---", ""]
     if lines[-2] == "---":
         lines = lines[:-2]
     return "\n".join(lines).rstrip() + "\n"
@@ -197,7 +239,7 @@ def html_page(
         out = []
         in_list = False
         for para in text.split("\n"):
-            if para.startswith("- "):
+            if para.startswith("- ") or para.startswith("→ "):
                 if not in_list:
                     out.append("<ul>")
                     in_list = True
@@ -214,11 +256,16 @@ def html_page(
 
     posts = []
     for item in copies(c):
+        note = f"<p>{esc(item['note'])}</p>" if item.get("note") else ""
         posts.append(
             f"<h2>{esc(item['title'])}</h2>"
             f"<p><em>When:</em> {esc(item['when'])}</p>"
+            f"<h3>Newsletter</h3>"
             f"<p><strong>{esc(item['headline'])}</strong></p>"
-            f"{md_inline(item['body'])}"
+            f"{md_inline(item['newsletter'])}"
+            f"<h3>LinkedIn</h3>"
+            f"<pre>{esc(item['linkedin'])}</pre>"
+            f"{note}"
         )
     imgs = ""
     if c["poster_url"]:
@@ -237,6 +284,9 @@ def html_page(
     main {{ max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; }}
     h1 {{ font-size: 28px; letter-spacing:-.03em; margin: 0 0 16px; }}
     h2 {{ font-size: 20px; margin: 32px 0 10px; }}
+    h3 {{ font-size: 16px; margin: 18px 0 8px; }}
+    pre {{ white-space: pre-wrap; background:#f1f5f9; border-radius:12px;
+      padding:14px 16px; font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }}
     img {{ max-width:100%; border-radius:12px; }}
     hr {{ border:0; border-top:1px solid #e2e8f0; margin: 28px 0; }}
     a {{ color:#1f60e0; }}
@@ -248,7 +298,7 @@ def html_page(
   <h1>{esc(page_title(c["partner"]))}</h1>
   <p>Great to have {p} on board as a media partner!</p>
   <p><strong>Planned posting dates:</strong> {esc(c["dates"])}</p>
-  <p>Below is ready-to-use copy for each date. Use the post that matches your date:</p>
+  <p>Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:</p>
   <ul>
     <li>by Nov 20 → Post 1</li>
     <li>December → Post 2</li>
@@ -306,6 +356,16 @@ def notion_children(
     def h2(text: str) -> dict:
         return {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [rt(text)]}}
 
+    def h3(text: str) -> dict:
+        return {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [rt(text)]}}
+
+    def code(text: str) -> dict:
+        return {
+            "object": "block",
+            "type": "code",
+            "code": {"rich_text": [rt(text[:2000])], "language": "plain text"},
+        }
+
     def bullet(text: str) -> dict:
         return {
             "object": "block",
@@ -327,7 +387,7 @@ def notion_children(
     kids = [
         para(rt(f"Great to have {p} on board as a media partner!")),
         para(rt("Planned posting dates: ", bold=True), rt(c["dates"])),
-        para(rt("Below is ready-to-use copy for each date. Use the post that matches your date:")),
+        para(rt("Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:")),
         bullet("by Nov 20 → Post 1"),
         bullet("December → Post 2"),
         bullet("early January → Post 3"),
@@ -344,9 +404,14 @@ def notion_children(
     for item in copies(c):
         kids.append(h2(item["title"]))
         kids.append(para(rt("When: ", italic=True), rt(item["when"])))
+        kids.append(h3("Newsletter"))
         kids.append(para(rt(item["headline"], bold=True)))
-        for chunk in item["body"].split("\n\n"):
+        for chunk in item["newsletter"].split("\n\n"):
             kids.append(para(rt(chunk.replace("**", ""))))
+        kids.append(h3("LinkedIn"))
+        kids.append(code(item["linkedin"]))
+        if item.get("note"):
+            kids.append(para(rt(item["note"])))
         kids.append(divider())
     if kids and kids[-1]["type"] == "divider":
         kids.pop()
