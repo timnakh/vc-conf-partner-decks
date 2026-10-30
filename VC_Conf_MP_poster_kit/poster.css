@@ -1,0 +1,80 @@
+/* VC Conf 2027 — Media Partner poster. Shared styles for portrait (1080x1350) and square (1080x1080). */
+@font-face { font-family: "Inter"; font-weight: 600; src: url("assets/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 700; src: url("assets/fonts/inter-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 800; src: url("assets/fonts/inter-latin-800-normal.woff2") format("woff2"); }
+
+:root {
+  --ink: #0B1F3F;
+  --muted: #4A5F80;
+  --blue: #1F5FE0;
+  --zoom: #2D8CFF;
+  --line: #D9E6F7;
+  --bg: #EEF5FE;
+  --grad: linear-gradient(90deg, #38A3FF 0%, #1F60E0 100%);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: var(--bg); }
+body { font-family: "Inter", sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+.poster {
+  position: relative;
+  width: 1080px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 700px 620px at 100% 0%, #CFE6FF 0%, rgba(238,245,254,0) 100%),
+    radial-gradient(ellipse 560px 480px at 0% 100%, #FFF1D6 0%, rgba(238,245,254,0) 100%),
+    var(--bg);
+}
+.poster.portrait { height: 1350px; }
+.poster.square { height: 1080px; }
+
+.abs { position: absolute; }
+.t { line-height: 1; white-space: nowrap; }
+.grad-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* Top line */
+.free { display: flex; align-items: center; justify-content: center; background: var(--grad); border-radius: 10px; color: #fff; font-weight: 800; letter-spacing: -0.01em; }
+.sub { font-weight: 700; letter-spacing: -0.005em; }
+.headline { font-weight: 800; letter-spacing: -0.0545em; }
+
+/* Partner block */
+.ring { border-radius: 50%; background: var(--grad); }
+.logo-circle { position: absolute; border-radius: 50%; background: #fff; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.logo-circle img { width: 74%; height: 74%; object-fit: contain; }
+.logo-circle img[src=""] { display: none; }
+.company { font-weight: 800; letter-spacing: -0.03em; }
+.pill { display: flex; align-items: center; background: #fff; border: 2px solid var(--line); border-radius: 999px; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; }
+.pill .dot { border-radius: 50%; background: var(--grad); flex: none; }
+
+/* Date row */
+.date { font-weight: 800; letter-spacing: -0.02em; }
+.times { display: flex; align-items: baseline; white-space: nowrap; line-height: 1; }
+.times b { font-weight: 700; letter-spacing: -0.01em; }
+.times i { font-style: normal; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; }
+.times .sep { border-radius: 50%; background: #38A3FF; align-self: center; flex: none; }
+.times .online { color: var(--blue); }
+.host { display: flex; align-items: center; }
+.host .label { text-align: right; }
+.host .label small { display: block; font-weight: 600; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; }
+.host .label strong { display: block; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.host .avatar { border-radius: 50%; background: var(--grad); position: relative; flex: none; }
+.host .avatar img { position: absolute; border-radius: 50%; }
+
+/* Day cards */
+.day { position: absolute; background: #fff; border: 2px solid var(--line); border-radius: 20px; }
+.day .head { position: absolute; display: flex; align-items: baseline; }
+.day .head b { font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.day .head span { font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; line-height: 1; }
+.day .zoom { position: absolute; display: flex; align-items: center; color: var(--zoom); font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.day .zoom::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--zoom); flex: none; }
+.day h3 { position: absolute; font-weight: 700; letter-spacing: -0.02em; }
+.day p { position: absolute; font-weight: 600; letter-spacing: -0.02em; }
+
+/* Speaker cards */
+.speakers { position: absolute; display: grid; grid-template-columns: repeat(5, 1fr); }
+.card { background: #fff; border: 2px solid var(--line); border-radius: 20px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.card img { display: block; }
+
+/* Footer */
+.footer { position: absolute; left: 0; right: 0; text-align: center; font-weight: 800; letter-spacing: -0.01em; line-height: 1; white-space: nowrap; }

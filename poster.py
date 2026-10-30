@@ -1,4 +1,4 @@
-"""Media-partner poster fill. Slots from Figma PSD; pixels from flattened PNG."""
+"""Media-partner posters: January 2027 portrait + LinkedIn square."""
 
 from __future__ import annotations
 
@@ -24,11 +24,14 @@ from fill import (
 from names import display_name
 
 ROOT = Path(__file__).resolve().parent
-TEMPLATE = ROOT / "assets" / "posters" / "media-partner.png"
-SPEC_PATH = ROOT / "assets" / "posters" / "media-partner.json"
+POSTER_DIR = ROOT / "assets" / "posters"
+SPEC_PATH = POSTER_DIR / "spec.json"
 DEFAULT_URL = "https://vcconf.com/?15"
+INK = (11, 31, 63, 255)
+GRAD0 = (56, 163, 255)
+GRAD1 = (31, 96, 224)
 _SPEC: dict | None = None
-_BASE: Image.Image | None = None
+_BASE: dict[str, Image.Image] = {}
 _FONTS: dict[tuple[str, int], ImageFont.FreeTypeFont] = {}
 _DUMMY = ImageDraw.Draw(Image.new("RGB", (1, 1)))
 
@@ -40,15 +43,14 @@ def _spec() -> dict:
     return _SPEC
 
 
-def _base() -> Image.Image:
-    global _BASE
-    if _BASE is None:
-        _BASE = Image.open(TEMPLATE).convert("RGB")
-    return _BASE
-
-
-def _s(v: float, scale: float) -> int:
-    return round(v * scale)
+def _base(kind: str) -> Image.Image:
+    cached = _BASE.get(kind)
+    if cached is not None:
+        return cached
+    path = POSTER_DIR / _spec()[kind]["file"]
+    im = Image.open(path).convert("RGB")
+    _BASE[kind] = im
+    return im
 
 
 def _font(weight: str, px: int) -> ImageFont.FreeTypeFont:
@@ -58,10 +60,11 @@ def _font(weight: str, px: int) -> ImageFont.FreeTypeFont:
         return cached
     files = {
         "bold": "Inter-Bold.otf",
+        "extrabold": "Inter-Bold.otf",
         "semibold": "Inter-SemiBold.otf",
         "regular": "Inter-Regular.otf",
     }
-    font = ImageFont.truetype(str(FONT_FILES / files.get(weight, "Inter-Regular.otf")), px)
+    font = ImageFont.truetype(str(FONT_FILES / files.get(weight, "Inter-Bold.otf")), px)
     _FONTS[key] = font
     return font
 
@@ -82,7 +85,7 @@ def apply_utm(url: str, company: str) -> str:
     }
     raw_q = parsed.query
     if raw_q and "=" not in raw_q:
-        for key, val in list(utm.items()):
+        for key in list(utm):
             if key in raw_q:
                 del utm[key]
         extra = urlencode(utm)
@@ -119,26 +122,130 @@ def poster_filename(pattern: str | None, name: str) -> str:
     return cleaned or "poster.png"
 
 
-def _sample(im: Image.Image, x: int, y: int) -> tuple[int, int, int, int]:
-    x = min(max(x, 0), im.width - 1)
-    y = min(max(y, 0), im.height - 1)
-    px = im.getpixel((x, y))
-    return (px[0], px[1], px[2], 255)
-
-
-def _fit_px(text: str, max_w: int, max_h: int, size: int) -> tuple[ImageFont.FreeTypeFont, list[str], int]:
+def _tracked_width(text: str, font: ImageFont.FreeTypeFont, tracking: float) -> float:
+    if not text:
+        return 0
     dummy = _DUMMY
-    for s in range(size, 20, -2):
-        font = _font("bold", s)
-        lines = _wrap_text(text, font, max_w)
-        if len(lines) > 2:
-            continue
-        spacing = round(s * -0.04)
-        bbox = dummy.multiline_textbbox((0, 0), "\n".join(lines), font=font, spacing=spacing)
-        if bbox[2] - bbox[0] <= max_w and bbox[3] - bbox[1] <= max_h:
-            return font, lines, spacing
-    font = _font("bold", 22)
-    return font, _wrap_text(text, font, max_w)[:2], 0
+    width = 0.0
+    last = len(text) - 1
+    for i, ch in enumerate(text):
+        width += dummy.textlength(ch, font=font)
+        if i < last:
+            width += tracking
+    return width
+
+
+def _draw_tracked(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, font, fill, tracking: float) -> float:
+    x, y = xy
+    dummy = _DUMMY
+    last = len(text) - 1
+    for i, ch in enumerate(text):
+        draw.text((x, y), ch, font=font, fill=fill)
+        x += dummy.textlength(ch, font=font)
+        if i < last:
+            x += tracking
+    return x
+
+
+def _draw_gradient_tracked(im: Image.Image, xy: tuple[float, float], text: str, font, tracking: float) -> None:
+    dummy = _DUMMY
+    x, y = xy
+    total = max(_tracked_width(text, font, tracking), 1)
+    overlay = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    walked = 0.0
+    last = len(text) - 1
+    for i, ch in enumerate(text):
+        t = walked / total
+        fill = (
+            round(GRAD0[0] + (GRAD1[0] - GRAD0[0]) * t),
+            round(GRAD0[1] + (GRAD1[1] - GRAD0[1]) * t),
+            round(GRAD0[2] + (GRAD1[2] - GRAD0[2]) * t),
+            255,
+        )
+        draw.text((x, y), ch, font=font, fill=fill)
+        step = dummy.textlength(ch, font=font)
+        x += step
+        walked += step
+        if i < last:
+            x += tracking
+            walked += tracking
+    im.paste(Image.alpha_composite(im.convert("RGBA"), overlay).convert("RGB"))
+
+
+def _fit_company(text: str, max_px: int, min_px: int, width: int, top0: float) -> tuple[ImageFont.FreeTypeFont, list[str], float, float]:
+    size = max_px
+    font = _font("extrabold", size)
+    tracking = -0.03 * size
+    while _tracked_width(text, font, tracking) > width and size > min_px:
+        size -= 1
+        font = _font("extrabold", size)
+        tracking = -0.03 * size
+    top = top0 + 0.864 * (max_px - size)
+    if _tracked_width(text, font, tracking) > width:
+        lines = _wrap_text(text, font, width)[:2]
+        return font, lines, top, 0
+    return font, [text], top, tracking
+
+
+def _png(im: Image.Image) -> bytes:
+    out = io.BytesIO()
+    im.save(out, format="PNG", compress_level=2)
+    return out.getvalue()
+
+
+def _preview(im: Image.Image, size: tuple[int, int]) -> bytes:
+    buf = io.BytesIO()
+    im.resize(size, Image.Resampling.BILINEAR).save(buf, format="JPEG", quality=80)
+    return buf.getvalue()
+
+
+def _fill_kind(kind: str, name: str, shown_url: str, logo) -> Image.Image:
+    spec = _spec()[kind]
+    im = _base(kind).copy()
+    draw = ImageDraw.Draw(im)
+
+    logo_s = spec["logo"]
+    lx, ly, lw = int(logo_s["x"]), int(logo_s["y"]), int(logo_s["w"])
+    if logo is not None:
+        if hasattr(logo, "seek"):
+            logo.seek(0)
+        inner = max(8, round(lw * 0.74))
+        mark = _place_mark(Image.open(logo), inner, inner // 2)
+        im.paste(mark, (lx + (lw - inner) // 2, ly + (lw - inner) // 2), mark)
+        draw = ImageDraw.Draw(im)
+
+    name_s = spec["name"]
+    font, lines, top, tracking = _fit_company(
+        name, int(name_s["max"]), int(name_s["min"]), int(name_s["width"]), float(name_s["y"])
+    )
+    nx = float(name_s["x"])
+    if len(lines) == 1:
+        _draw_tracked(draw, (nx, top), lines[0], font, INK, tracking)
+    else:
+        spacing = round(font.size * 0.08)
+        y = top
+        for line in lines:
+            draw.text((nx, y), line, font=font, fill=INK)
+            bbox = _DUMMY.textbbox((0, 0), line, font=font)
+            y += (bbox[3] - bbox[1]) + spacing
+
+    foot = spec["footer"]
+    cx0, cy0, cx1, cy1 = foot["cover"]
+    sample_y = max(0, int(cy0) - 6)
+    cover = im.getpixel((im.width // 2, sample_y))
+    draw.rectangle([cx0, cy0, cx1, cy1], fill=cover)
+    size = int(foot["size"])
+    font = _font("extrabold", size)
+    tracking = float(foot["tracking"]) * size
+    prefix = "Register free: "
+    full_w = _tracked_width(prefix + shown_url, font, tracking)
+    x = (im.width - full_w) / 2
+    y = float(foot["y"])
+    end_x = _draw_tracked(draw, (x, y), prefix, font, INK, tracking)
+    rgb = im.convert("RGB")
+    _draw_gradient_tracked(rgb, (end_x, y), shown_url, font, tracking)
+    return rgb
 
 
 def fill_poster(
@@ -147,7 +254,8 @@ def fill_poster(
     url: str = "",
     promo: str = "",
     first_name: str = "",
-) -> tuple[bytes, bytes, dict]:
+    posting_dates: str = "",
+) -> dict:
     name = display_name(company) or (company or "").strip()
     if not name:
         raise ValueError("укажи название компании")
@@ -155,89 +263,25 @@ def fill_poster(
     final_url = apply_utm(entered, name)
     shown_url = print_url(entered)
     code = (promo or "").strip().upper()
-    spec = _spec()
-    s = float(spec.get("scale") or 1)
-    canvas_w, canvas_h = spec["canvas"]
-    out_w, out_h = _s(canvas_w, s), _s(canvas_h, s)
-
-    im = _base().copy()
-    if im.size != (out_w, out_h):
-        im = im.resize((out_w, out_h), Image.Resampling.BILINEAR)
-    draw = ImageDraw.Draw(im)
-
-    logo_s = spec["logo"]
-    lx, ly = _s(logo_s["x"], s), _s(logo_s["y"], s)
-    lw, lh = _s(logo_s["w"], s), _s(logo_s["h"], s)
-    if logo is not None:
-        if hasattr(logo, "seek"):
-            logo.seek(0)
-        d = min(lw, lh)
-        mark = _place_mark(Image.open(logo), d, d // 2)
-        im.paste(mark, (lx + (lw - d) // 2, ly + (lh - d) // 2), mark)
-        draw = ImageDraw.Draw(im)
-
-    name_s = spec["name"]
-    nx, ny = _s(name_s["x"], s), _s(name_s["y"], s)
-    nw, nh = _s(name_s["w"], s), _s(name_s["h"], s)
-    font, lines, spacing = _fit_px(name, nw, nh, _s(name_s["size"], s))
-    dummy = _DUMMY
-    draw.multiline_text(
-        (nx, ny),
-        "\n".join(lines),
-        font=font,
-        fill=tuple(name_s["color"]) + (255,),
-        spacing=spacing,
-    )
-
-    cta = spec["cta"]
-    cx, cy = _s(cta["x"], s), _s(cta["y"], s)
-    ctw, cth = _s(cta["w"], s), _s(cta["h"], s)
-    teal = _sample(im, cx + ctw // 2, cy + cth // 2)
-    inset = max(8, _s(40, s))
-    draw.rectangle([cx + inset, cy + inset, cx + ctw - inset, cy + cth - inset], fill=teal)
-
-    line1 = f"Free registration: {shown_url}"
-    line2 = (
-        f"1:1 pitch tickets – 10% off with code {code}"
-        if code
-        else "1:1 pitch tickets – 10% off with code"
-    )
-    max_w = ctw - 2 * inset
-    size1, size2 = _s(cta["line1_size"], s), _s(cta["line2_size"], s)
-    weight = cta.get("weight") or "semibold"
-    f1 = _font(weight, size1)
-    f2 = _font(weight, size2)
-    while dummy.textlength(line1, font=f1) > max_w and size1 > 18:
-        size1 -= 2
-        f1 = _font(weight, size1)
-    while dummy.textlength(line2, font=f2) > max_w and size2 > 16:
-        size2 -= 2
-        f2 = _font(weight, size2)
-    b1 = dummy.textbbox((0, 0), line1, font=f1)
-    b2 = dummy.textbbox((0, 0), line2, font=f2)
-    h1 = b1[3] - b1[1]
-    h2 = b2[3] - b2[1]
-    gap = _s(int(cta.get("line_gap") or 36), s)
-    block = h1 + gap + h2
-    top = cy + (cth - block) / 2
-    mid_x = cx + ctw / 2
-    color = tuple(cta["color"]) + (255,)
-    draw.text((mid_x, top + h1 / 2), line1, font=f1, fill=color, anchor="mm")
-    draw.text((mid_x, top + h1 + gap + h2 / 2), line2, font=f2, fill=color, anchor="mm")
-
-    rgb = im.convert("RGB") if im.mode != "RGB" else im
-    out = io.BytesIO()
-    rgb.save(out, format="PNG", compress_level=2)
-    preview = io.BytesIO()
-    rgb.resize((410, 512), Image.Resampling.BILINEAR).save(preview, format="JPEG", quality=80)
+    portrait = _fill_kind("portrait", name, shown_url, logo)
+    if logo is not None and hasattr(logo, "seek"):
+        logo.seek(0)
+    square = _fill_kind("square", name, shown_url, logo)
     meta = {
         "company": name,
         "url": final_url,
         "promo": code,
         "first_name": (first_name or "").strip(),
+        "posting_dates": (posting_dates or "").strip(),
         "kind": "media-partner",
     }
-    return out.getvalue(), preview.getvalue(), meta
+    return {
+        "portrait": _png(portrait),
+        "square": _png(square),
+        "preview": _preview(portrait, (410, 512)),
+        "preview_square": _preview(square, (410, 410)),
+        "meta": meta,
+    }
 
 
 def fill_posters_from_csv(
@@ -285,6 +329,12 @@ def fill_posters_from_csv(
             or lower.get("contact")
             or ""
         )
+        posting_dates = (
+            lower.get("posting_dates")
+            or lower.get("dates")
+            or lower.get("planned_dates")
+            or ""
+        )
         photo_val = lower.get("logo") or lower.get("photo") or lower.get("image") or ""
         photo = _photo_from_row(photo_val, None, logos_map) if photo_val else None
         if photo is None:
@@ -295,30 +345,44 @@ def fill_posters_from_csv(
             except Exception:
                 photo = None
         try:
-            data, preview, meta = fill_poster(
-                company, logo=photo, url=link, promo=promo, first_name=first_name
+            filled = fill_poster(
+                company,
+                logo=photo,
+                url=link,
+                promo=promo,
+                first_name=first_name,
+                posting_dates=posting_dates,
             )
         except Exception as e:
             failed.append({"name": company, "url": link, "reason": str(e), "row": original})
             continue
         filename = poster_filename("", company)
+        square_name = f"VC Conf poster — {company} (LinkedIn).png"
         if filename in used:
             used[filename] += 1
-            filename = f"VC Conf poster — {company} ({used[filename]}).png"
+            n = used[filename]
+            filename = f"VC Conf poster — {company} ({n}).png"
+            square_name = f"VC Conf poster — {company} (LinkedIn) ({n}).png"
         else:
             used[filename] = 1
+        portrait_path = spill_payload(filled["portrait"], ".png")
+        square_path = spill_payload(filled["square"], ".png")
         previews.append(
             {
                 "name": company,
-                "jpeg": preview,
-                "pdf_path": spill_payload(data, ".png"),
+                "jpeg": filled["preview"],
+                "pdf_path": portrait_path,
                 "filename": filename,
+                "files": [
+                    {"filename": filename, "pdf_path": portrait_path, "kind": "portrait"},
+                    {"filename": square_name, "pdf_path": square_path, "kind": "square"},
+                ],
                 "row": original,
                 "row_index": i - 1,
-                "meta": meta,
+                "meta": filled["meta"],
             }
         )
-        del data
+        del filled
         gc.collect()
         if on_progress:
             on_progress(i, total, company)

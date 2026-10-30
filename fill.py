@@ -588,11 +588,13 @@ def pack_selected(
             for i, item in enumerate(previews):
                 if i in skip_set:
                     continue
-                zf.writestr(
-                    item["filename"],
-                    item_payload(item),
-                    compress_type=zipfile.ZIP_STORED,
-                )
+                files = item.get("files") or [item]
+                for blob in files:
+                    zf.writestr(
+                        blob["filename"],
+                        item_payload(blob),
+                        compress_type=zipfile.ZIP_STORED,
+                    )
             rejected = [previews[i]["row"] for i in skip if 0 <= i < len(previews)]
             for item in failed or []:
                 if item.get("row"):

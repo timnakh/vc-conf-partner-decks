@@ -5,6 +5,7 @@ import io
 import tempfile
 import threading
 import uuid
+import zipfile
 from typing import Optional
 from urllib.parse import quote
 
@@ -224,6 +225,24 @@ def fill_download(fill_id: str):
     item = FILLS.get(fill_id)
     if not item:
         raise HTTPException(404, "превью уже не доступно — собери ещё раз")
+    files = item.get("files") or []
+    if files:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for blob in files:
+                zf.writestr(
+                    blob["filename"],
+                    item_payload(blob),
+                    compress_type=zipfile.ZIP_STORED,
+                )
+        name = item["filename"]
+        if not name.lower().endswith(".zip"):
+            name = Path(name).stem + ".zip"
+        return Response(
+            buf.getvalue(),
+            media_type="application/zip",
+            headers={"Content-Disposition": _disposition(name)},
+        )
     return Response(
         item["pdf"],
         media_type=item.get("content_type") or "application/pdf",
@@ -382,13 +401,16 @@ def poster_materials(fill_id: str):
     track = meta.get("url") or ""
     promo = meta.get("promo") or ""
     first_name = meta.get("first_name") or ""
+    posting_dates = meta.get("posting_dates") or ""
     if not store.configured():
         md = materials.markdown(
             company=company,
             track_url=track,
             promo=promo,
             poster_url="",
+            poster_square_url="",
             first_name=first_name,
+            posting_dates=posting_dates,
         )
         return JSONResponse(
             {
@@ -404,18 +426,37 @@ def poster_materials(fill_id: str):
     if not token:
         raise HTTPException(409, _busy_snapshot()["message"])
     try:
-        poster_url = store.put_file(
-            store.object_key(item["filename"], item.get("template_id") or "poster-mp"),
-            item["pdf"],
-            item["filename"],
-            item.get("content_type") or "image/png",
-        )
+        folder = item.get("template_id") or "poster-mp"
+        poster_url = ""
+        poster_square_url = ""
+        files = item.get("files") or []
+        if files:
+            for blob in files:
+                url = store.put_file(
+                    store.object_key(blob["filename"], folder),
+                    item_payload(blob),
+                    blob["filename"],
+                    blob.get("content_type") or "image/png",
+                )
+                if blob.get("kind") == "square":
+                    poster_square_url = url
+                else:
+                    poster_url = url
+        else:
+            poster_url = store.put_file(
+                store.object_key(item["filename"], folder),
+                item["pdf"],
+                item["filename"],
+                item.get("content_type") or "image/png",
+            )
         html = materials.html_page(
             company=company,
             track_url=track,
             promo=promo,
             poster_url=poster_url,
+            poster_square_url=poster_square_url,
             first_name=first_name,
+            posting_dates=posting_dates,
         )
         html_name = f"{company} — materials.html"
         html_url = store.put_file(
@@ -429,7 +470,9 @@ def poster_materials(fill_id: str):
             track_url=track,
             promo=promo,
             poster_url=poster_url,
+            poster_square_url=poster_square_url,
             first_name=first_name,
+            posting_dates=posting_dates,
         )
         notion_url = ""
         notion_error = ""
@@ -440,7 +483,9 @@ def poster_materials(fill_id: str):
                     track_url=track,
                     promo=promo,
                     poster_url=poster_url,
+                    poster_square_url=poster_square_url,
                     first_name=first_name,
+                    posting_dates=posting_dates,
                 )
             except Exception as e:
                 notion_error = str(e)
@@ -453,6 +498,7 @@ def poster_materials(fill_id: str):
             "title": materials.page_title(company),
             "markdown": md,
             "poster_url": poster_url,
+            "poster_square_url": poster_square_url,
             "html_url": html_url,
             "notion_url": notion_url,
             "notion_error": notion_error,
@@ -479,6 +525,7 @@ async def poster_fill(
     company: str = Form(""),
     name: str = Form(""),
     first_name: str = Form(""),
+    posting_dates: str = Form(""),
     url: str = Form(""),
     promo: str = Form(""),
     website: str = Form(""),
@@ -503,8 +550,13 @@ async def poster_fill(
         raise HTTPException(409, _busy_snapshot()["message"])
     try:
         _busy_progress(0, 1)
-        data, preview, meta = fill_poster(
-            person, logo=image, url=url, promo=promo, first_name=first_name
+        filled = fill_poster(
+            person,
+            logo=image,
+            url=url,
+            promo=promo,
+            first_name=first_name,
+            posting_dates=posting_dates,
         )
         _busy_progress(1, 1)
     except Exception as e:
@@ -512,23 +564,42 @@ async def poster_fill(
     finally:
         _busy_release(token)
     filename = poster_filename(filename_pattern, person)
+    square_name = f"VC Conf poster — {person} (LinkedIn).png"
+    zip_name = filename.rsplit(".", 1)[0] + ".zip"
     fill_id = uuid.uuid4().hex
     FILLS[fill_id] = {
-        "pdf": data,
-        "filename": filename,
-        "preview": preview,
+        "pdf": filled["portrait"],
+        "filename": zip_name,
+        "preview": filled["preview"],
+        "preview_square": filled["preview_square"],
         "template_id": "poster-mp",
-        "content_type": "image/png",
-        "meta": meta,
+        "content_type": "application/zip",
+        "meta": filled["meta"],
+        "files": [
+            {
+                "filename": filename,
+                "pdf": filled["portrait"],
+                "content_type": "image/png",
+                "kind": "portrait",
+            },
+            {
+                "filename": square_name,
+                "pdf": filled["square"],
+                "content_type": "image/png",
+                "kind": "square",
+            },
+        ],
     }
     return JSONResponse(
         {
             "id": fill_id,
             "name": person,
-            "filename": filename,
-            "track_url": meta["url"],
-            "promo": meta["promo"],
-            "preview": "data:image/jpeg;base64," + base64.b64encode(preview).decode(),
+            "filename": zip_name,
+            "track_url": filled["meta"]["url"],
+            "promo": filled["meta"]["promo"],
+            "preview": "data:image/jpeg;base64," + base64.b64encode(filled["preview"]).decode(),
+            "preview_square": "data:image/jpeg;base64,"
+            + base64.b64encode(filled["preview_square"]).decode(),
         }
     )
 
@@ -618,6 +689,22 @@ def fill_share(fill_id: str):
     if not token:
         raise HTTPException(409, _busy_snapshot()["message"])
     try:
+        files = item.get("files") or []
+        if files:
+            urls = {}
+            for blob in files:
+                urls[blob.get("kind") or "file"] = store.put_file(
+                    store.object_key(blob["filename"], item.get("template_id") or "decks"),
+                    item_payload(blob),
+                    blob["filename"],
+                    blob.get("content_type") or "image/png",
+                )
+            url = urls.get("portrait") or next(iter(urls.values()))
+            return {
+                "url": url,
+                "square_url": urls.get("square") or "",
+                "filename": item["filename"],
+            }
         url = store.put_file(
             key,
             item["pdf"],
@@ -667,10 +754,23 @@ def batch_share(job_id: str, body: PackBody):
             for n, item in enumerate(todo, start=1):
                 _set_job(job_id, share_current=item.get("name") or item["filename"], share_done=n - 1)
                 _busy_progress(n - 1, len(todo))
-                key = store.object_key(item["filename"], folder)
-                urls[int(item["row_index"])] = store.put_file(
-                    key, item_payload(item), item["filename"], content_type
-                )
+                row_i = int(item["row_index"])
+                blobs = item.get("files") or [item]
+                portrait_url = ""
+                square_url = ""
+                for blob in blobs:
+                    put = store.put_file(
+                        store.object_key(blob["filename"], folder),
+                        item_payload(blob),
+                        blob["filename"],
+                        blob.get("content_type") or content_type,
+                    )
+                    if blob.get("kind") == "square":
+                        square_url = put
+                    else:
+                        portrait_url = put
+                urls[row_i] = portrait_url or square_url
+                item["_square_url"] = square_url
                 _set_job(job_id, share_done=n)
                 _busy_progress(n, len(todo))
             csv_name = zip_name.replace(".zip", "-links.csv")
@@ -686,12 +786,15 @@ def batch_share(job_id: str, body: PackBody):
                 if poster_job:
                     company = meta.get("company") or item.get("name") or "partner"
                     poster_url = urls.get(int(item["row_index"])) or ""
+                    poster_square_url = item.get("_square_url") or ""
                     html = materials.html_page(
                         company=company,
                         track_url=meta.get("url") or "",
                         promo=meta.get("promo") or "",
                         poster_url=poster_url,
+                        poster_square_url=poster_square_url,
                         first_name=meta.get("first_name") or "",
+                        posting_dates=meta.get("posting_dates") or "",
                     )
                     html_name = f"{company} — materials.html"
                     extra["materials_url"] = store.put_file(
@@ -700,12 +803,15 @@ def batch_share(job_id: str, body: PackBody):
                         html_name,
                         "text/html",
                     )
+                    extra["poster_square_url"] = poster_square_url
                     extra["markdown"] = materials.markdown(
                         company=company,
                         track_url=meta.get("url") or "",
                         promo=meta.get("promo") or "",
                         poster_url=poster_url,
+                        poster_square_url=poster_square_url,
                         first_name=meta.get("first_name") or "",
+                        posting_dates=meta.get("posting_dates") or "",
                     )
                 if extra:
                     extras[int(item["row_index"])] = extra

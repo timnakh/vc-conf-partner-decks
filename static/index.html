@@ -60,6 +60,12 @@
     .preview-box.on { display:block; }
     .preview-box .who { font-weight:700; margin: 0 0 8px; }
     .preview-box img.hero { width:100%; border-radius:16px; border:1px solid var(--line); background:#fffaf3; display:block; }
+    .pair { display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start; }
+    @media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
+    textarea.dates {
+      width:100%; min-height:72px; padding:11px 12px; border:1px solid #ead9b3;
+      border-radius:12px; font: inherit; background:#fffef9; resize:vertical;
+    }
     .ghost { margin-top:0; background:#fff; color:var(--ink); border:1px solid #ead9b3; }
     .ghost:hover { background:#fff7ed; }
     .carousel-hint { font-size:13px; color:var(--muted); margin: 0 0 10px; }
@@ -221,7 +227,7 @@
     </div>
     <div class="pane pane-posters" id="pane-posters">
     <h1>Постеры для партнёров</h1>
-    <p class="lead">MVP: пока только медиапартнёр, по примеру 1:1 Pitch Conf. Меняем компанию, логотип, ссылку и промокод. Скачать PNG — основной путь; ссылка тоже есть.</p>
+    <p class="lead">Январь 2027: вертикаль 1080×1350 в рассылку и квадрат 1080×1080 в LinkedIn. Промокод только в текстах, не на постере.</p>
 
     <section>
       <h2>Шаблон</h2>
@@ -232,7 +238,7 @@
             <option value="media-partner">Медиапартнёр</option>
           </select>
         </div>
-        <p class="note">Остальные роли (журналист, спикер, инвестор) подключим, когда будут финальные шаблоны новой конфы. Поля те же.</p>
+          <p class="note">Оба формата собираются сразу. Промокод и даты уходят в страницу для партнёра.</p>
       </div>
       <div class="row">
         <div>
@@ -265,14 +271,21 @@
             <label for="p-url">Ссылка регистрации</label>
             <input id="p-url" name="url" type="text" placeholder="https://vcconf.com/?15" value="https://vcconf.com/?15" />
           </div>
-          <p class="note">На кнопке короткая ссылка без UTM. В мета и CSV — с <code>utm_source</code> компании, <code>utm_medium=media_partner</code>.</p>
+          <p class="note">На постере короткая ссылка без UTM. В CSV и текстах — с <code>utm_source</code> компании.</p>
         </div>
         <div class="row">
           <div>
             <label for="p-promo">Промокод</label>
             <input id="p-promo" name="promo" type="text" placeholder="FOUNDERSBAY10" />
           </div>
-          <p class="note">Строка «1:1 pitch tickets – 10% off with code …». Пусто — без кода.</p>
+          <p class="note">Только в текстах кита, на постер не ставим.</p>
+        </div>
+        <div class="row">
+          <div>
+            <label for="p-dates">Planned posting dates</label>
+            <textarea id="p-dates" name="posting_dates" class="dates" rows="3">3–4 posts (newsletter + LinkedIn): by Nov 20, early Dec, early Jan, Jan 19–22. Posting Mon–Fri 9–11 am EST</textarea>
+          </div>
+          <p class="note">Свободная английская строка, как договорились с партнёром. Примеры: <code>Newsletter mention by Nov 20, LinkedIn post early Jan</code> или <code>Post 1 by Nov 20, post 2 Jan 19–22 (dates proposed, not yet confirmed)</code>. Пусто — первый вариант по умолчанию.</p>
         </div>
         <div class="row">
           <div>
@@ -296,10 +309,13 @@
         <div class="err" id="p-one-err"></div>
         <div class="preview-box" id="p-one-preview">
           <p class="who" id="p-one-preview-name"></p>
-          <img class="hero" id="p-one-preview-img" alt="Постер медиапартнёра" />
+          <div class="pair">
+            <img class="hero" id="p-one-preview-img" alt="Вертикальный постер" />
+            <img class="hero" id="p-one-preview-sq" alt="Квадрат LinkedIn" />
+          </div>
           <p class="meta-line" id="p-one-track"></p>
           <div class="actions">
-            <button type="button" id="p-one-download">Скачать PNG</button>
+            <button type="button" id="p-one-download">Скачать оба PNG</button>
             <button type="button" class="ghost" id="p-one-share">Сделать ссылку</button>
             <button type="button" class="ghost" id="p-notion">Подготовить страницу с материалами МП</button>
           </div>
@@ -315,7 +331,7 @@
             <label for="p-md">Markdown — вставь в пустую страницу Notion</label>
             <textarea class="md" id="p-md" readonly></textarea>
           </div>
-          <p class="note" id="p-notion-note">Partner kit: ссылка и код, план из 4 отправок, перки, готовые тексты. Подставляем компанию, ссылку, промо, постер.</p>
+          <p class="note" id="p-notion-note">Страница партнёра: даты, 4 текста, оба постера, промокод в копи.</p>
         </div>
       </form>
     </section>
@@ -328,7 +344,7 @@
             <label for="p-csv">Таблица CSV</label>
             <input id="p-csv" name="csv_file" type="file" accept=".csv,text/csv" required />
           </div>
-          <p class="note">Колонки: <code>company</code>, <code>first_name</code> (необяз.), <code>url</code>, <code>promo</code>, <code>website</code>. Пример: <a href="/static/sample-poster.csv">sample-poster.csv</a>.</p>
+          <p class="note">Колонки: <code>company</code>, <code>url</code>, <code>promo</code>, <code>posting_dates</code> (необяз.), <code>website</code>. Пример: <a href="/static/sample-poster.csv">sample-poster.csv</a>.</p>
         </div>
         <div class="zip-skip">Логотип с сайта часто кривой. Zip надёжнее: имя файла = компания, например <code>Founders Bay.png</code>.</div>
         <div class="row">
@@ -349,7 +365,7 @@
           <p class="carousel-hint" id="p-gal-hint">Прокрути вбок. Галочка — не брать в zip и без ссылки в CSV.</p>
           <div class="carousel" id="p-gal-track"></div>
           <div class="actions">
-            <button type="button" id="p-batch-download">Скачать выбранные PNG</button>
+            <button type="button" id="p-batch-download">Скачать выбранные PNG (оба формата)</button>
             <button type="button" class="ghost" id="p-batch-share">Ссылки, материалы и CSV</button>
           </div>
         </div>
@@ -822,6 +838,7 @@
         posterOneId = data.id;
         document.getElementById("p-one-preview-name").textContent = data.name;
         document.getElementById("p-one-preview-img").src = data.preview;
+        document.getElementById("p-one-preview-sq").src = data.preview_square || data.preview;
         const bits = [];
         if (data.track_url) bits.push("UTM: " + data.track_url);
         if (data.promo) bits.push("код " + data.promo);

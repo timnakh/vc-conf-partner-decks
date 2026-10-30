@@ -38,7 +38,9 @@ def create_mp_page(
     track_url: str,
     promo: str,
     poster_url: str,
+    poster_square_url: str = "",
     first_name: str = "",
+    posting_dates: str = "",
 ) -> str:
     if not configured():
         raise RuntimeError(MISSING)
@@ -56,7 +58,9 @@ def create_mp_page(
             track_url=track_url,
             promo=promo,
             poster_url=poster_url,
+            poster_square_url=poster_square_url,
             first_name=first_name,
+            posting_dates=posting_dates,
         ),
     }
     if poster_url:

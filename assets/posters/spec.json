@@ -1,0 +1,16 @@
+{
+  "portrait": {
+    "file": "portrait.png",
+    "size": [1080, 1350],
+    "logo": {"x": 62, "y": 256, "w": 160},
+    "name": {"x": 261, "y": 271, "width": 763, "max": 58, "min": 34, "tracking": -0.03},
+    "footer": {"y": 1272.9, "size": 30, "tracking": -0.02, "cover": [0, 1260, 1080, 1348]}
+  },
+  "square": {
+    "file": "square.png",
+    "size": [1080, 1080],
+    "logo": {"x": 61, "y": 231, "w": 130},
+    "name": {"x": 222, "y": 239.9, "width": 800, "max": 52, "min": 32, "tracking": -0.03},
+    "footer": {"y": 1018.2, "size": 28, "tracking": -0.02, "cover": [0, 1006, 1080, 1076]}
+  }
+}
