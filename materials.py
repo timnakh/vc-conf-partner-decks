@@ -335,7 +335,7 @@ def html_page(
     posts = []
     for item in copies(c):
         note = f"<p>{esc(item['note'])}</p>" if item.get("note") else ""
-        hint = item.get("banner_hint") or BANNER_HINT,
+        hint = item.get("banner_hint") or BANNER_HINT
         kicker = esc(item.get("kicker") or "")
         posts.append(
             f"<h2>{esc(item['title'])}</h2>"
