@@ -29,11 +29,12 @@ def _ctx(
     partner = (company or "").strip() or "partner"
     code = (promo or "").strip().upper() or "{{code}}"
     link = (track_url or "").strip() or "{{reg_url}}"
+    short = _short_link(link)
     dates = (posting_dates or "").strip() or DEFAULT_DATES
     return {
         "partner": partner,
         "link": link,
-        "code_url": _code_url(link),
+        "short": short,
         "code": code,
         "dates": dates,
         "poster_url": poster_url or "",
@@ -42,19 +43,19 @@ def _ctx(
     }
 
 
-def _code_url(url: str) -> str:
-    # Notion autolinks https://… inside a code block and copies it as <https://…>.
-    # A zero-width space after :// keeps the visible URL intact and copy-safe.
-    if url.startswith("https://"):
-        return "https://\u200b" + url[len("https://") :]
-    if url.startswith("http://"):
-        return "http://\u200b" + url[len("http://") :]
-    return url
+def _short_link(url: str) -> str:
+    text = (url or "").strip()
+    for prefix in ("https://", "http://"):
+        if text.lower().startswith(prefix):
+            text = text[len(prefix) :]
+            break
+    if text.startswith("www."):
+        text = text[4:]
+    return text or "vcconf.com"
 
 
 def copies(c: dict) -> list[dict]:
-    p, code, link = c["partner"], c["code"], c["link"]
-    li = c["code_url"]
+    p, code, link = c["partner"], c["code"], c["short"]
     return [
         {
             "title": "Post 1: Announcement",
@@ -78,7 +79,7 @@ def copies(c: dict) -> list[dict]:
                 "→ Day 2: 8-min 1:1 pitch calls with matched investors\n"
                 "→ Day 3: family office & LP insights + 10+ rooms led by FOs & LPs\n\n"
                 f"Investors get a free 3-day pass. Founders: code {code} for 10% off pitch tickets.\n\n"
-                f"Register free: {li}"
+                f"Register free: {link}"
             ),
             "note": "Attach the square poster.",
         },
@@ -98,7 +99,7 @@ def copies(c: dict) -> list[dict]:
                 "That's part of the speaker lineup at the free Virtual VC Conf, Jan 27–29. "
                 "In September, 1,300+ investors joined and founders got 4,270 1:1 matches.\n\n"
                 f"We're a media partner this year. Day 1 livestream is free, and founders get 10% off pitch tickets with code {code}.\n\n"
-                f"Register free: {li}"
+                f"Register free: {link}"
             ),
         },
         {
@@ -116,7 +117,7 @@ def copies(c: dict) -> list[dict]:
                 "On Jan 28, founders at the free Virtual VC Conf get 8-minute 1:1 calls with investors matched by sector, stage and geography.\n\n"
                 "The day before, 100+ VCs & angels lead the panels and breakout rooms. Free to watch.\n\n"
                 f"Founders: code {code} for 10% off pitch tickets.\n"
-                f"Register free: {li}"
+                f"Register free: {link}"
             ),
         },
         {
@@ -136,7 +137,7 @@ def copies(c: dict) -> list[dict]:
                 "→ Day 2: 1:1 pitch calls with matched investors\n"
                 "→ Day 3: family offices & LPs\n\n"
                 f"1:1 pitch slots are limited. Founders: code {code} for 10% off.\n\n"
-                f"Register free: {li}"
+                f"Register free: {link}"
             ),
         },
     ]
@@ -383,14 +384,27 @@ def notion_children(
         return {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [rt(text)]}}
 
     def code(text: str) -> dict:
-        node = {
-            "type": "text",
-            "text": {"content": (text or "")[:2000], "link": None},
-        }
+        # Split the tracking URL so Notion does not autolink it as <https://…>.
+        marker = "Register free: "
+        idx = text.rfind(marker)
+        nodes: list[dict] = []
+        if idx == -1:
+            nodes.append({"type": "text", "text": {"content": (text or "")[:2000], "link": None}})
+        else:
+            before = text[: idx + len(marker)]
+            url = text[idx + len(marker) :]
+            if before:
+                nodes.append({"type": "text", "text": {"content": before[:2000], "link": None}})
+            if "." in url:
+                host, rest = url.split(".", 1)
+                nodes.append({"type": "text", "text": {"content": host, "link": None}})
+                nodes.append({"type": "text", "text": {"content": "." + rest, "link": None}})
+            elif url:
+                nodes.append({"type": "text", "text": {"content": url, "link": None}})
         return {
             "object": "block",
             "type": "code",
-            "code": {"rich_text": [node], "language": "plain text"},
+            "code": {"rich_text": nodes, "language": "plain text"},
         }
 
     def bullet(text: str) -> dict:
