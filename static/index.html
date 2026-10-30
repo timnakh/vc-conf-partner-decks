@@ -290,6 +290,13 @@
         </div>
         <div class="row">
           <div>
+            <label for="p-first-post">First post date</label>
+            <input id="p-first-post" name="first_post_date" type="text" placeholder="Nov 2–6" />
+          </div>
+          <p class="note">Необяз. Одно поле на список и на When в Post 1. Пример <code>Nov 2–6</code> → «first post (ideally Nov 2–6)» и «ideally Nov 2–6, at the latest by Nov 20». Пусто — везде «by Nov 20».</p>
+        </div>
+        <div class="row">
+          <div>
             <label for="p-website">Сайт компании</label>
             <input id="p-website" name="website" type="url" placeholder="https://foundersbay.com" />
           </div>
@@ -347,7 +354,7 @@
             <label for="p-csv">Таблица CSV</label>
             <input id="p-csv" name="csv_file" type="file" accept=".csv,text/csv" required />
           </div>
-          <p class="note">Колонки: <code>company</code>, <code>url</code>, <code>promo</code>, <code>posting_dates</code> (необяз.), <code>website</code>. Пример: <a href="/static/sample-poster.csv">sample-poster.csv</a>.</p>
+          <p class="note">Колонки: <code>company</code>, <code>url</code>, <code>promo</code>, <code>posting_dates</code> (необяз.), <code>first_post_date</code> (необяз., напр. <code>Nov 2–6</code>), <code>website</code>. Пример: <a href="/static/sample-poster.csv">sample-poster.csv</a>.</p>
         </div>
         <div class="zip-skip">Логотип с сайта часто кривой. Zip надёжнее: имя файла = компания, например <code>Founders Bay.png</code>.</div>
         <div class="row">

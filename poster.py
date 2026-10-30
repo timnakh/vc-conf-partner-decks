@@ -250,6 +250,7 @@ def fill_poster(
     promo: str = "",
     first_name: str = "",
     posting_dates: str = "",
+    first_post_date: str = "",
 ) -> dict:
     name = display_name(company) or (company or "").strip()
     if not name:
@@ -271,6 +272,7 @@ def fill_poster(
         "promo": code,
         "first_name": (first_name or "").strip(),
         "posting_dates": (posting_dates or "").strip(),
+        "first_post_date": (first_post_date or "").strip(),
         "kind": "media-partner",
     }
     return {
@@ -335,6 +337,12 @@ def fill_posters_from_csv(
             or lower.get("planned_dates")
             or ""
         )
+        first_post_date = (
+            lower.get("first_post_date")
+            or lower.get("first_post")
+            or lower.get("post1_date")
+            or ""
+        )
         photo_val = lower.get("logo") or lower.get("photo") or lower.get("image") or ""
         photo = _photo_from_row(photo_val, None, logos_map) if photo_val else None
         if photo is None:
@@ -352,6 +360,7 @@ def fill_posters_from_csv(
                 promo=promo,
                 first_name=first_name,
                 posting_dates=posting_dates,
+                first_post_date=first_post_date,
             )
         except Exception as e:
             failed.append({"name": company, "url": link, "reason": str(e), "row": original})

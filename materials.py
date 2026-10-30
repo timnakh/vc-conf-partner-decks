@@ -9,6 +9,8 @@ DEFAULT_DATES = (
     "3–4 posts (newsletter + LinkedIn): by Nov 20, early Dec, early Jan, "
     "Jan 19–22. Posting Mon–Fri 9–11 am EST"
 )
+BANNER_HINT = "Add the banner here and link it to your link."
+POST1_LATEST = "by Nov 20"
 
 
 def page_title(company: str) -> str:
@@ -25,6 +27,7 @@ def _ctx(
     poster_banner_url: str = "",
     first_name: str = "",
     posting_dates: str = "",
+    first_post_date: str = "",
     **_extra,
 ) -> dict:
     partner = (company or "").strip() or "partner"
@@ -32,6 +35,7 @@ def _ctx(
     link = (track_url or "").strip() or "{{reg_url}}"
     short = _short_link(link)
     dates = (posting_dates or "").strip() or DEFAULT_DATES
+    post1_list, post1_when = _post1_labels(first_post_date)
     return {
         "partner": partner,
         "link": link,
@@ -39,11 +43,24 @@ def _ctx(
         "code_url": _code_plain(short),
         "code": code,
         "dates": dates,
+        "first_post_date": (first_post_date or "").strip(),
+        "post1_list": post1_list,
+        "post1_when": post1_when,
         "poster_url": poster_url or "",
         "poster_square_url": poster_square_url or "",
         "poster_banner_url": poster_banner_url or "",
         "first_name": (first_name or "").strip(),
     }
+
+
+def _post1_labels(first_post_date: str) -> tuple[str, str]:
+    date = (first_post_date or "").strip()
+    if date:
+        return (
+            f"first post (ideally {date})",
+            f"ideally {date}, at the latest by Nov 20",
+        )
+    return POST1_LATEST, POST1_LATEST
 
 
 def _short_link(url: str) -> str:
@@ -73,7 +90,7 @@ def copies(c: dict) -> list[dict]:
     return [
         {
             "title": "Post 1: Announcement",
-            "when": "by Nov 20",
+            "when": c["post1_when"],
             "kicker": "ON JAN 27–29",
             "headline": "Virtual VC Conf 2027 is coming up!",
             "newsletter": (
@@ -96,13 +113,13 @@ def copies(c: dict) -> list[dict]:
                 f"Register free: {li}"
             ),
             "note": "Attach the square poster.",
-            "banner_hint": "[Banner, linked to your link]",
+            "banner_hint": BANNER_HINT,
         },
         {
             "title": "Post 2: Speakers",
             "when": "Dec 1–11",
             "kicker": "ON JAN 27–29",
-            "headline": "Meet the VCs speaking at Virtual VC Conf",
+            "headline": "Meet the speakers at Virtual VC Conf",
             "newsletter": (
                 "Speakers include Justin Stebbins (Northgate, $5B+ AUM), Yaron Valler (Target Global), "
                 "Gené Teare (Crunchbase), Sophie Buonassisi (GTMfund) and Douglas Sloan (Better Society Capital).\n\n"
@@ -119,7 +136,7 @@ def copies(c: dict) -> list[dict]:
                 f"We're a media partner this year. Day 1 livestream is free, and founders get 10% off pitch tickets with code {code}.\n\n"
                 f"Register free: {li}"
             ),
-            "banner_hint": "[Banner, linked to your link]",
+            "banner_hint": BANNER_HINT,
         },
         {
             "title": "Post 3: New year, new round",
@@ -140,7 +157,7 @@ def copies(c: dict) -> list[dict]:
                 f"Founders: code {code} for 10% off pitch tickets.\n"
                 f"Register free: {li}"
             ),
-            "banner_hint": "[Banner, linked to your link]",
+            "banner_hint": BANNER_HINT,
         },
         {
             "title": "Post 4: Last call",
@@ -164,7 +181,7 @@ def copies(c: dict) -> list[dict]:
                 f"1:1 pitch slots are limited. Founders: code {code} for 10% off.\n\n"
                 f"Register free: {li}"
             ),
-            "banner_hint": "[Banner, linked to your link]",
+            "banner_hint": BANNER_HINT,
         },
     ]
 
@@ -206,7 +223,7 @@ def markdown(
         "",
         "Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:",
         "",
-        "- by Nov 20 → Post 1",
+        f"- {c['post1_list']} → Post 1",
         "- December → Post 2",
         "- early January → Post 3",
         "- Jan 19–22 → Post 4",
@@ -243,7 +260,7 @@ def markdown(
             "",
             item["newsletter"],
             "",
-            item.get("banner_hint") or "[Banner, linked to your link]",
+            item.get("banner_hint") or BANNER_HINT,
             "",
             "**LinkedIn**",
             "",
@@ -318,7 +335,7 @@ def html_page(
     posts = []
     for item in copies(c):
         note = f"<p>{esc(item['note'])}</p>" if item.get("note") else ""
-        hint = item.get("banner_hint") or "[Banner, linked to your link]"
+        hint = item.get("banner_hint") or BANNER_HINT,
         kicker = esc(item.get("kicker") or "")
         posts.append(
             f"<h2>{esc(item['title'])}</h2>"
@@ -369,7 +386,7 @@ def html_page(
   <p><strong>Planned posting dates:</strong> {esc(c["dates"])}</p>
   <p>Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:</p>
   <ul>
-    <li>by Nov 20 → Post 1</li>
+    <li>{esc(c["post1_list"])} → Post 1</li>
     <li>December → Post 2</li>
     <li>early January → Post 3</li>
     <li>Jan 19–22 → Post 4</li>
@@ -503,7 +520,7 @@ def notion_children(
         para(rt("Your code: ", bold=True), rt(c["code"])),
         para(rt("Planned posting dates: ", bold=True), rt(c["dates"])),
         para(rt("Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:")),
-        bullet("by Nov 20 → Post 1"),
+        bullet(f"{c['post1_list']} → Post 1"),
         bullet("December → Post 2"),
         bullet("early January → Post 3"),
         bullet("Jan 19–22 → Post 4"),
@@ -534,7 +551,7 @@ def notion_children(
                 kids.append(para(rt(chunk, bold=True)))
             else:
                 kids.append(para(*md_bits(chunk.replace("\n", " "))))
-        kids.append(para(rt(item.get("banner_hint") or "[Banner, linked to your link]")))
+        kids.append(para(rt(item.get("banner_hint") or BANNER_HINT)))
         kids.append(h3("LinkedIn"))
         kids.append(code(item["linkedin"]))
         if item.get("note"):

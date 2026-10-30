@@ -10,7 +10,7 @@ Great to have {{company}} on board as a media partner!
 
 Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:
 
-- by Nov 20 → Post 1
+- {{post1_list}} → Post 1
 - December → Post 2
 - early January → Post 3
 - Jan 19–22 → Post 4
@@ -30,7 +30,7 @@ Click an image → ⋯ → Download
 
 ## Post 1: Announcement
 
-*When:* by Nov 20
+*When:* {{post1_when}}
 
 **Newsletter**
 
@@ -52,7 +52,7 @@ With code **{{code}}**, you get 10% off pitch tickets.
 
 Register free at {{reg_url}}
 
-[Banner, linked to your link]
+Add the banner here and link it to your link.
 
 **LinkedIn**
 
@@ -82,7 +82,7 @@ Attach the square poster.
 
 **ON JAN 27–29**
 
-**Meet the VCs speaking at Virtual VC Conf**
+**Meet the speakers at Virtual VC Conf**
 
 Speakers include Justin Stebbins (Northgate, $5B+ AUM), Yaron Valler (Target Global), Gené Teare (Crunchbase), Sophie Buonassisi (GTMfund) and Douglas Sloan (Better Society Capital).
 
@@ -95,7 +95,7 @@ With code **{{code}}**, you get 10% off pitch tickets.
 
 Register free at {{reg_url}}
 
-[Banner, linked to your link]
+Add the banner here and link it to your link.
 
 **LinkedIn**
 
@@ -130,7 +130,7 @@ With code **{{code}}**, you get 10% off pitch tickets.
 
 Register free at {{reg_url}}
 
-[Banner, linked to your link]
+Add the banner here and link it to your link.
 
 **LinkedIn**
 
@@ -167,7 +167,7 @@ With code **{{code}}**, you get 10% off pitch tickets.
 
 Register free at {{reg_url}}
 
-[Banner, linked to your link]
+Add the banner here and link it to your link.
 
 **LinkedIn**
 

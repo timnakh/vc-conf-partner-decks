@@ -42,6 +42,7 @@ def create_mp_page(
     poster_banner_url: str = "",
     first_name: str = "",
     posting_dates: str = "",
+    first_post_date: str = "",
 ) -> str:
     if not configured():
         raise RuntimeError(MISSING)
@@ -63,6 +64,7 @@ def create_mp_page(
             poster_banner_url=poster_banner_url,
             first_name=first_name,
             posting_dates=posting_dates,
+            first_post_date=first_post_date,
         ),
     }
     cover = poster_banner_url or poster_url
