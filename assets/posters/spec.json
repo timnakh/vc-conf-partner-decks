@@ -16,11 +16,19 @@
   "banner": {
     "file": "banner.png",
     "size": [1200, 600],
-    "logo": {"x": 60, "y": 368, "w": 68},
-    "name": {"x": 148, "y": 372, "width": 470, "max": 30, "min": 18, "tracking": -0.03},
+    "logo": {"x": 61, "y": 369, "w": 66},
+    "name": {
+      "x": 148,
+      "y": 368,
+      "width": 470,
+      "max": 30,
+      "min": 18,
+      "tracking": -0.03,
+      "pin_top": true
+    },
     "footer": {
       "x": 339,
-      "y": 484,
+      "y": 483,
       "size": 22,
       "tracking": -0.01,
       "cover": [328, 476, 610, 522],

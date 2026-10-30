@@ -205,6 +205,10 @@ def _fill_kind(kind: str, name: str, shown_url: str, logo) -> Image.Image:
     font, lines, top, tracking = _fit_company(
         name, int(name_s["max"]), int(name_s["min"]), int(name_s["width"]), float(name_s["y"])
     )
+    if name_s.get("pin_top"):
+        top = float(name_s["y"])
+        if len(lines) > 1:
+            lines = [name]
     nx = float(name_s["x"])
     if len(lines) == 1:
         _draw_tracked(draw, (nx, top), lines[0], font, INK, tracking)
