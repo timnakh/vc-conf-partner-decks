@@ -44,11 +44,13 @@ Click an image → ⋯ → Download
 - **Grab a 1:1 Pitch Ticket** if you want to pitch matched investors on Day 2.
 - **Investors join free** for all three days.
 
+Day 1: VC panels + 25+ breakout rooms. Day 2: 1:1 pitch calls. Day 3: family office & LP insights.
+
 In September, 1,300+ investors joined, looking to invest in AI, fintech, healthcare and beyond. You'll be matched with them by sector, stage and geography.
 
 With code **{{code}}**, you get 10% off pitch tickets.
 
-**Register free at {{reg_url}}**
+Register free at {{reg_url}}
 
 [Banner, linked to your link]
 
@@ -91,7 +93,7 @@ In September, founders got 4,270 1:1 matches with 1,300+ investors.
 
 With code **{{code}}**, you get 10% off pitch tickets.
 
-**Register free at {{reg_url}}**
+Register free at {{reg_url}}
 
 [Banner, linked to your link]
 
@@ -126,7 +128,7 @@ At Virtual VC Conf, founders get 1:1 calls with investors matched by sector, sta
 
 With code **{{code}}**, you get 10% off pitch tickets.
 
-**Register free at {{reg_url}}**
+Register free at {{reg_url}}
 
 [Banner, linked to your link]
 
@@ -163,7 +165,7 @@ The full program is live. 8 AM PT / 11 AM ET, 100% online.
 
 With code **{{code}}**, you get 10% off pitch tickets.
 
-**Register free at {{reg_url}}**
+Register free at {{reg_url}}
 
 [Banner, linked to your link]
 

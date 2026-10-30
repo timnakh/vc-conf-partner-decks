@@ -81,9 +81,10 @@ def copies(c: dict) -> list[dict]:
                 "- **Attend for free** and watch Day 1 panels with top VCs.\n"
                 "- **Grab a 1:1 Pitch Ticket** if you want to pitch matched investors on Day 2.\n"
                 "- **Investors join free** for all three days.\n\n"
+                "Day 1: VC panels + 25+ breakout rooms. Day 2: 1:1 pitch calls. Day 3: family office & LP insights.\n\n"
                 "In September, 1,300+ investors joined, looking to invest in AI, fintech, healthcare and beyond. You'll be matched with them by sector, stage and geography.\n\n"
                 f"With code **{code}**, you get 10% off pitch tickets.\n\n"
-                f"**Register free at {link}**"
+                f"Register free at {link}"
             ),
             "linkedin": (
                 "We're a media partner of Virtual VC Conf 2027, and it's free to join 🎉\n\n"
@@ -109,7 +110,7 @@ def copies(c: dict) -> list[dict]:
                 "- **Grab a 1:1 Pitch Ticket** to pitch investors matched to your sector, stage and geography.\n\n"
                 "In September, founders got 4,270 1:1 matches with 1,300+ investors.\n\n"
                 f"With code **{code}**, you get 10% off pitch tickets.\n\n"
-                f"**Register free at {link}**"
+                f"Register free at {link}"
             ),
             "linkedin": (
                 "Northgate, Target Global, Crunchbase, GTMfund, Better Society Capital.\n\n"
@@ -130,7 +131,7 @@ def copies(c: dict) -> list[dict]:
                 "- **Attend for free** and watch Day 1 panels with 100+ VCs & angels.\n"
                 "- **Grab a 1:1 Pitch Ticket** to get on investors' calendars on Day 2.\n\n"
                 f"With code **{code}**, you get 10% off pitch tickets.\n\n"
-                f"**Register free at {link}**"
+                f"Register free at {link}"
             ),
             "linkedin": (
                 "Raising this year? Here's a fast way to get in front of investors.\n\n"
@@ -152,7 +153,7 @@ def copies(c: dict) -> list[dict]:
                 "- **Grab a 1:1 Pitch Ticket** before slots run out. Pitch calls are on Day 2.\n"
                 "- **Investors join free** for all three days.\n\n"
                 f"With code **{code}**, you get 10% off pitch tickets.\n\n"
-                f"**Register free at {link}**"
+                f"Register free at {link}"
             ),
             "linkedin": (
                 "Next week: Virtual VC Conf, and Day 1 is free to watch.\n\n"
@@ -306,7 +307,10 @@ def html_page(
                 out.append("</ul>")
                 in_list = False
             if para.strip():
-                out.append(f"<p>{rich(para)}</p>")
+                if para.startswith("Register free at "):
+                    out.append(f"<p><strong>{esc(para)}</strong></p>")
+                else:
+                    out.append(f"<p>{rich(para)}</p>")
         if in_list:
             out.append("</ul>")
         return "".join(out)
@@ -526,6 +530,8 @@ def notion_children(
             if lines and all(ln.startswith("- ") for ln in lines):
                 for ln in lines:
                     kids.append(bullet_bits(*md_bits(ln[2:])))
+            elif chunk.startswith("Register free at "):
+                kids.append(para(rt(chunk, bold=True)))
             else:
                 kids.append(para(*md_bits(chunk.replace("\n", " "))))
         kids.append(para(rt(item.get("banner_hint") or "[Banner, linked to your link]")))
