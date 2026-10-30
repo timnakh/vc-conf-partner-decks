@@ -7,7 +7,6 @@ import gc
 import io
 import json
 from pathlib import Path
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -70,34 +69,14 @@ def _font(weight: str, px: int) -> ImageFont.FreeTypeFont:
     return font
 
 
-def apply_utm(url: str, company: str) -> str:
+def apply_utm(url: str, company: str = "") -> str:
+    """Keep the partner tracking URL as entered. ?15 / ?120 already identifies them."""
     raw = (url or DEFAULT_URL).strip()
     if not raw:
         raw = DEFAULT_URL
     if not raw.lower().startswith(("http://", "https://")):
         raw = "https://" + raw
-    parsed = urlparse(raw)
-    slug = ascii_filename(display_name(company) or company).rsplit(".", 1)[0]
-    slug = slug.replace("-", "_")[:40].lower() or "partner"
-    utm = {
-        "utm_source": slug,
-        "utm_medium": "media_partner",
-        "utm_campaign": "vcconf",
-    }
-    raw_q = parsed.query
-    if raw_q and "=" not in raw_q:
-        for key in list(utm):
-            if key in raw_q:
-                del utm[key]
-        extra = urlencode(utm)
-        query = f"{raw_q}&{extra}" if extra else raw_q
-        return urlunparse(parsed._replace(query=query))
-    query = dict(parse_qsl(raw_q, keep_blank_values=True))
-    if query.get("utm_source"):
-        query["utm_source"] = query["utm_source"].lower()
-    for key, val in utm.items():
-        query.setdefault(key, val)
-    return urlunparse(parsed._replace(query=urlencode(query)))
+    return raw
 
 
 def print_url(url: str) -> str:
