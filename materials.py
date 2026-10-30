@@ -170,8 +170,8 @@ def markdown(
         "",
         f"Great to have {p} on board as a media partner!",
         "",
-        f"**Your link:** {link}",
-        f"**Your code:** {c['code']}",
+        f"- **Your link:** {link}",
+        f"- **Your code:** {c['code']}",
         "",
         f"**Planned posting dates:** {c['dates']}",
         "",
@@ -318,8 +318,8 @@ def html_page(
 <main>
   <h1>{esc(page_title(c["partner"]))}</h1>
   <p>Great to have {p} on board as a media partner!</p>
-  <p><strong>Your link:</strong> <a href="{link}">{link}</a><br />
-  <strong>Your code:</strong> <code>{code}</code></p>
+  <p><strong>Your link:</strong> <a href="{link}">{link}</a></p>
+  <p><strong>Your code:</strong> <code>{code}</code></p>
   <p><strong>Planned posting dates:</strong> {esc(c["dates"])}</p>
   <p>Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:</p>
   <ul>
@@ -414,6 +414,13 @@ def notion_children(
             "bulleted_list_item": {"rich_text": [rt(text)]},
         }
 
+    def bullet_bits(*bits: dict) -> dict:
+        return {
+            "object": "block",
+            "type": "bulleted_list_item",
+            "bulleted_list_item": {"rich_text": list(bits)},
+        }
+
     def divider() -> dict:
         return {"object": "block", "type": "divider", "divider": {}}
 
@@ -427,8 +434,8 @@ def notion_children(
     p = c["partner"]
     kids = [
         para(rt(f"Great to have {p} on board as a media partner!")),
-        para(rt("Your link: ", bold=True), rt(c["link"])),
-        para(rt("Your code: ", bold=True), rt(c["code"])),
+        bullet_bits(rt("Your link: ", bold=True), rt(c["link"])),
+        bullet_bits(rt("Your code: ", bold=True), rt(c["code"])),
         para(rt("Planned posting dates: ", bold=True), rt(c["dates"])),
         para(rt("Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:")),
         bullet("by Nov 20 → Post 1"),

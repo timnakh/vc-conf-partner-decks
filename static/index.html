@@ -330,6 +330,7 @@
             <input id="p-html-link" type="text" readonly />
             <label for="p-md">Markdown — вставь в пустую страницу Notion</label>
             <textarea class="md" id="p-md" readonly></textarea>
+            <button type="button" class="ghost" id="p-md-copy">Скопировать markdown</button>
           </div>
           <p class="note" id="p-notion-note">Страница партнёра: даты, 4 текста, оба постера, промокод в копи.</p>
         </div>
@@ -782,6 +783,19 @@
         err.textContent = ex.message;
       } finally {
         btn.disabled = false;
+      }
+    });
+    document.getElementById("p-md-copy").addEventListener("click", async () => {
+      const md = document.getElementById("p-md").value;
+      const btn = document.getElementById("p-md-copy");
+      if (!md) return;
+      try {
+        await navigator.clipboard.writeText(md);
+        const prev = btn.textContent;
+        btn.textContent = "Скопировано";
+        setTimeout(() => { btn.textContent = prev; }, 1600);
+      } catch (e) {
+        document.getElementById("p-md").select();
       }
     });
     document.getElementById("p-one-share").addEventListener("click", async () => {
