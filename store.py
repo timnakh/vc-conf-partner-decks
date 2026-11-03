@@ -125,8 +125,11 @@ def list_keys(prefix: str) -> list[dict]:
     return out
 
 
-def get_bytes(key: str) -> bytes:
+def get_bytes(key: str, max_bytes: int | None = None) -> bytes:
     if not configured():
         raise RuntimeError(MISSING)
-    resp = _client().get_object(Bucket=os.environ["S3_BUCKET"].strip(), Key=key)
+    kw: dict = {"Bucket": os.environ["S3_BUCKET"].strip(), "Key": key}
+    if max_bytes:
+        kw["Range"] = f"bytes=0-{int(max_bytes) - 1}"
+    resp = _client().get_object(**kw)
     return resp["Body"].read()

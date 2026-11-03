@@ -313,6 +313,14 @@ def parse_kit_html(html: str, *, source_url: str = "") -> dict:
     }
 
 
+def kit_slug(key: str) -> str:
+    name = (key or "").rsplit("/", 1)[-1]
+    name = re.sub(r"-[0-9a-f]{6,}\.html$", ".html", name, flags=re.I)
+    name = re.sub(r"\.html$", "", name, flags=re.I)
+    name = re.sub(r"[_—\-\s]+materials.*", "", name, flags=re.I)
+    return name.strip().lower() or (key or "").lower()
+
+
 def scan_r2_kits() -> list[dict]:
     import store
 
@@ -322,13 +330,25 @@ def scan_r2_kits() -> list[dict]:
         for it in items
         if it["key"].lower().endswith(".html") and "materials" in it["key"].lower()
     ]
+    latest: dict[str, dict] = {}
+    for it in htmls:
+        slug = kit_slug(it["key"])
+        prev = latest.get(slug)
+        if prev is None or it["last_modified"] > prev["last_modified"]:
+            latest[slug] = it
     by_company: dict[str, dict] = {}
-    for it in sorted(htmls, key=lambda x: x["last_modified"]):
-        raw = store.get_bytes(it["key"]).decode("utf-8", errors="replace")
+    for it in latest.values():
+        slug = kit_slug(it["key"])
+        if (it.get("size") or 0) > 400_000:
+            continue
+        raw = store.get_bytes(it["key"], max_bytes=80_000).decode("utf-8", errors="replace")
+        if re.search(r"<title>\s*502\s*</title>|Bad Gateway", raw[:2000], re.I):
+            continue
         parsed = parse_kit_html(raw, source_url=it["url"])
         parsed["r2_key"] = it["key"]
         parsed["last_modified"] = it["last_modified"].isoformat()
-        key = (parsed["company"] or it["key"]).strip().lower()
+        parsed["posting_dates"] = (parsed.get("posting_dates") or "")[:400]
+        key = (parsed["company"] or slug or it["key"]).strip().lower()
         by_company[key] = parsed
     return sorted(by_company.values(), key=lambda r: (r["company"] or r["r2_key"]).lower())
 

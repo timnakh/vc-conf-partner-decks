@@ -89,8 +89,13 @@
     const res = await fetch(url, opts);
     const text = await res.text();
     let data = {};
-    try { data = text ? JSON.parse(text) : {}; } catch { data = { detail: text }; }
-    if (!res.ok) throw new Error(data.detail || res.statusText);
+    try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+    if (!res.ok) {
+      const html = /<!doctype html/i.test(text) || /bad gateway/i.test(text);
+      throw new Error(html
+        ? ("Render " + res.status + ": скан не успел (слишком много файлов в R2). Обнови и сканируй ещё раз.")
+        : (data.detail || text.slice(0, 240) || res.statusText));
+    }
     return data;
   }
   const SKIP_KEY = "mp_import_skip";
@@ -100,7 +105,10 @@
   }
   function saveSkip(set) { localStorage.setItem(SKIP_KEY, JSON.stringify([...set])); }
   let lastScan = [];
-  function cell(v) { return v ? String(v) : "—"; }
+  function cell(v) {
+    if (!v) return "—";
+    return String(v).slice(0, 280).replace(/[&<>"]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s]));
+  }
   function isJunk(r) {
     const url = (r.reg_url || "").toLowerCase();
     const company = (r.company || "").trim().toLowerCase();
