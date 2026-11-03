@@ -81,22 +81,33 @@ def _parse_one_date(text: str) -> tuple[date | None, bool]:
     return None, True
 
 
+_LI_X = re.compile(r"linkedin\s*(?:\+|and|&|/)\s*x\b|\+\s*x\b|\band\s+x\b|\btwitter\b|\bx\.com\b", re.I)
+
+
 def detect_channels(text: str) -> list[str]:
     low = (text or "").lower()
     if re.search(r"sponsored(\s+slot)?", low):
         return ["other"]
+    recurring = bool(re.search(r"every issue|until registration closes", low))
     no_nl = bool(
         re.search(r"no newsletter|not (in )?the newsletter|linkedin only|only linkedin", low)
     )
     has_nl = bool(re.search(r"newsletter", low))
     has_li = "linkedin" in low
-    has_x = bool(
-        re.search(r"\btwitter\b|\bx\.com\b|\+\s*x\b|\bx\s*\+|linkedin\s*\+\s*x", low)
-        or re.search(r"(?:^|[\s:/,])x(?:[\s:,]|$)", low)
-    )
+    has_x = bool(_LI_X.search(low))
+    li_x_plan = bool(re.search(r"linkedin\s*(?:\+|and|&|/)\s*x\b", low))
+    if recurring:
+        return ["newsletter"]
+    if li_x_plan and not has_nl:
+        return ["linkedin", "other"]
+    if li_x_plan and no_nl:
+        return ["linkedin", "other"]
     out: list[str] = []
-    if has_nl and not no_nl:
-        out.append("newsletter")
+    if has_nl and not no_nl and not (li_x_plan and not re.search(r"newsletter\s*\+\s*linkedin", low)):
+        if not li_x_plan:
+            out.append("newsletter")
+        elif re.search(r"newsletter\s*\+", low):
+            out.append("newsletter")
     if has_li:
         out.append("linkedin")
     if has_x:
@@ -175,11 +186,34 @@ def parse_posting_dates(
     first_post_date: str = "",
 ) -> list[dict]:
     text = (posting_dates_raw or "").strip()
-    text = re.split(r"Posting Mon", text, maxsplit=1, flags=re.I)[0]
+    text = re.split(
+        r"Posting Mon|Below is ready|Use the post that matches|→ Post 1",
+        text,
+        maxsplit=1,
+        flags=re.I,
+    )[0]
     channels = detect_channels(text)
     extra_note = ""
     recurring = bool(re.search(r"every issue|until registration closes", text, re.I))
     hits = _extract_date_hits(text)
+    first = (first_post_date or "").strip()
+    if first and not recurring:
+        d0, _ = _parse_one_date(first)
+        if d0:
+            hits = [
+                h
+                for h in hits
+                if not (
+                    "by" in (h.get("snippet") or "").lower()
+                    and h["date"].month == d0.month
+                    and h["date"].year == d0.year
+                    and h["date"] != d0
+                )
+            ]
+            if not any(h["date"] == d0 for h in hits):
+                hits.append(
+                    {"date": d0, "fuzzy": True, "conference": False, "snippet": first}
+                )
     if recurring:
         extra_note = "каждый выпуск"
         start = None
@@ -200,7 +234,6 @@ def parse_posting_dates(
             },
         ]
     numbered = _number_dates(hits)
-    first = (first_post_date or "").strip()
     if first and not recurring:
         d, _ = _parse_one_date(first)
         if d:
@@ -281,9 +314,16 @@ def parse_kit_html(html: str, *, source_url: str = "") -> dict:
     if m:
         code = m.group(1).strip().upper()
     dates = ""
-    m = re.search(r"Planned posting dates:\s*(.+?)(?:Below is ready-to-use|Visuals:|$)", blob, re.I)
+    m = re.search(
+        r"Planned posting dates:\s*(.+?)(?:Below is ready-to-use|Visuals:|Copy pack|$)",
+        blob,
+        re.I,
+    )
     if m:
         dates = m.group(1).strip()
+        dates = re.split(r"Use the post that matches", dates, maxsplit=1, flags=re.I)[0].strip()
+        if len(dates) > 420:
+            dates = dates[:420]
     first = ""
     m = re.search(r"ideally\s+([^,]+),\s*at the latest", blob, re.I)
     if m:
@@ -522,10 +562,20 @@ def import_from_r2(skip_keys: list[str] | None = None) -> dict:
     scanned = scan_r2_kits()
     imported = []
     skipped = []
+    with db.connect() as conn:
+        confirmed_names = {
+            r[0].lower()
+            for r in conn.execute("SELECT company FROM partner WHERE confirmed").fetchall()
+            if r[0]
+        }
     for row in scanned:
         key = row.get("r2_key") or ""
-        if key in skip or not ready_for_db(row.get("company") or "", row.get("code") or ""):
+        company = (row.get("company") or "").strip()
+        if key in skip or not ready_for_db(company, row.get("code") or ""):
             skipped.append(row)
+            continue
+        if company.lower() in confirmed_names:
+            skipped.append({**row, "skip_reason": "confirmed"})
             continue
         partner = upsert_partner(
             company=row["company"],
@@ -569,6 +619,68 @@ CHANNEL_LABELS = {
     "linkedin": "LinkedIn",
     "other": "other",
 }
+CH_SHORT = {"newsletter": "NL", "linkedin": "LI", "other": "X"}
+RU_MON = {
+    1: "янв", 2: "фев", 3: "мар", 4: "апр", 5: "май", 6: "июн",
+    7: "июл", 8: "авг", 9: "сен", 10: "окт", 11: "ноя", 12: "дек",
+}
+
+
+def ru_day(d) -> str:
+    if isinstance(d, str):
+        d = date.fromisoformat(d[:10])
+    return f"{d.day} {RU_MON[d.month]}"
+
+
+def partner_color(company: str, pid: int) -> str:
+    s = f"{company}|{pid}"
+    h = 0
+    for ch in s:
+        h = (h * 33 + ord(ch)) & 0xFFFFFFFF
+    return f"hsl({h % 360} 48% 36%)"
+
+
+def channels_short(channels: list[str]) -> str:
+    order = ["NL", "LI", "X"]
+    shorts = []
+    for c in channels:
+        s = CH_SHORT.get(c, "X")
+        if s not in shorts:
+            shorts.append(s)
+    shorts.sort(key=lambda x: order.index(x) if x in order else 9)
+    return "+".join(shorts)
+
+
+def posts_short(numbers: list[int]) -> str:
+    nums = sorted({int(n) for n in numbers})
+    return "+".join(f"P{n}" for n in nums)
+
+
+def group_digest_rows(rows: list[dict]) -> list[dict]:
+    buckets: dict[tuple, list[dict]] = {}
+    order: list[tuple] = []
+    for ev in rows:
+        key = (ev.get("partner_id"), ev.get("date"), ev.get("company"))
+        if key not in buckets:
+            buckets[key] = []
+            order.append(key)
+        buckets[key].append(ev)
+    out = []
+    for key in order:
+        items = buckets[key]
+        chs = channels_short([i.get("channel") or "" for i in items])
+        posts = " · ".join(f"Post {n}" for n in sorted({int(i["post_number"]) for i in items}))
+        company = items[0]["company"]
+        line = f"{company} — {chs} · {posts} · {ru_day(items[0]['date'])}"
+        out.append(
+            {
+                "line": line,
+                "ids": [i["id"] for i in items],
+                "company": company,
+                "date": items[0]["date"],
+            }
+        )
+    return out
 
 
 def reminder_text(pub: dict, partner: dict) -> str:
@@ -598,22 +710,29 @@ def calendar_bundle() -> dict:
             "FROM publication pu JOIN partner p ON p.id = pu.partner_id "
             "ORDER BY pu.date, lower(p.company), pu.post_number"
         ).fetchall()
+        drafts_n = cur.execute("SELECT COUNT(*) FROM partner WHERE NOT confirmed").fetchone()[0]
     events = []
     by_partner: dict[int, dict] = {}
     today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
     buckets = {
         "today": [],
         "remind": [],
         "overdue": [],
         "no_url": [],
-        "needs_check": [],
-        "missed": [],
+        "week": [],
+        "drafts_n": int(drafts_n or 0),
     }
+    seen_week: set[int] = set()
     for r in rows:
+        confirmed = bool(r[15])
+        color = partner_color(r[11], r[10])
         ev = {
             "id": r[0],
             "date": r[1].isoformat(),
             "channel": r[2],
+            "ch_short": CH_SHORT.get(r[2], "X"),
             "post_number": r[3],
             "post_label": POST_LABELS.get(r[3], str(r[3])),
             "status": r[4],
@@ -627,22 +746,23 @@ def calendar_bundle() -> dict:
             "code": r[12] or "",
             "reg_url": r[13] or "",
             "notion_page_url": r[14] or "",
-            "confirmed": bool(r[15]),
-            "title": f"{r[11]} · {r[2]} · Post {r[3]}",
+            "confirmed": confirmed,
+            "color": color,
+            "title": f"{r[11]} · {CH_SHORT.get(r[2], 'X')} · P{r[3]}",
         }
         events.append(ev)
         pack = by_partner.setdefault(
             r[10],
-            {"id": r[10], "company": r[11], "confirmed": bool(r[15]), "pubs": []},
+            {"id": r[10], "company": r[11], "confirmed": confirmed, "color": color, "pubs": []},
         )
         pack["pubs"].append(
             {"id": ev["id"], "date": ev["date"], "channel": ev["channel"],
              "post_number": ev["post_number"], "status": ev["status"]}
         )
+        if not confirmed:
+            continue
         d = r[1]
         st = r[4]
-        if st == "missed":
-            buckets["missed"].append(ev)
         if d == today:
             buckets["today"].append(ev)
         if today < d <= today + timedelta(days=3) and st not in ("published", "missed"):
@@ -651,8 +771,16 @@ def calendar_bundle() -> dict:
             buckets["overdue"].append(ev)
         if st == "published" and not (r[6] or "").strip():
             buckets["no_url"].append(ev)
-        if r[5]:
-            buckets["needs_check"].append(ev)
+        if monday <= d <= sunday and d != today and ev["id"] not in seen_week:
+            in_other = (
+                ev in buckets["today"]
+                or ev in buckets["remind"]
+                or ev in buckets["overdue"]
+                or ev in buckets["no_url"]
+            )
+            if not in_other:
+                buckets["week"].append(ev)
+                seen_week.add(ev["id"])
     return {
         "today": today.isoformat(),
         "events": events,

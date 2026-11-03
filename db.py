@@ -58,6 +58,19 @@ CREATE TABLE IF NOT EXISTS digest_log (
   sent_on DATE PRIMARY KEY,
   sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS telegram_action (
+  token TEXT PRIMARY KEY,
+  pub_ids TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS telegram_wait (
+  chat_id TEXT PRIMARY KEY,
+  action TEXT NOT NULL,
+  token TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 """
 
 _POOL = None

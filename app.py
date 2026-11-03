@@ -50,7 +50,7 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 @app.middleware("http")
 async def admin_basic_auth(request: Request, call_next):
-    if request.url.path == "/health":
+    if request.url.path in ("/health", "/telegram/webhook", "/cron/digest"):
         return await call_next(request)
     password = os.environ.get("ADMIN_PASSWORD", "").strip()
     if not password:
@@ -1051,6 +1051,18 @@ def api_digest():
         raise HTTPException(400, str(e)) from e
 
 
+@app.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "bad json") from None
+    try:
+        return digest.handle_update(body if isinstance(body, dict) else {})
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
 @app.get("/api/publications/{pub_id}/reminder")
 def api_reminder(pub_id: int):
     try:
@@ -1244,9 +1256,27 @@ def import_confirm(pid: int):
         raise HTTPException(400, str(e)) from e
 
 
+@app.get("/cron/digest")
+def cron_digest(key: str = ""):
+    secret = os.environ.get("CRON_SECRET", "").strip()
+    if not secret:
+        raise HTTPException(503, "нет CRON_SECRET")
+    if not key or len(key) != len(secret) or not secrets.compare_digest(key, secret):
+        raise HTTPException(401, "bad key")
+    try:
+        return digest.cron_send()
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+@app.on_event("startup")
+def _telegram_webhook_on_boot():
+    threading.Thread(target=digest.ensure_webhook, daemon=True).start()
 
 
 if __name__ == "__main__":
