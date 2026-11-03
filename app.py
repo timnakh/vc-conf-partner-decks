@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import base64
 import io
+import os
+import secrets
 import tempfile
 import threading
 import uuid
 import zipfile
+from datetime import date
 from typing import Optional
 from urllib.parse import quote
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from starlette.background import BackgroundTask
@@ -34,12 +37,38 @@ from fill import (
 from poster import fill_poster, fill_posters_from_csv, poster_filename
 import materials
 import notion as notionmod
+import db
+import partners
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 
 app = FastAPI(title="Презентации для партнёров")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+@app.middleware("http")
+async def admin_basic_auth(request: Request, call_next):
+    if request.url.path == "/health":
+        return await call_next(request)
+    password = os.environ.get("ADMIN_PASSWORD", "").strip()
+    if not password:
+        return await call_next(request)
+    header = request.headers.get("authorization") or ""
+    user, pw = "", ""
+    if header.lower().startswith("basic "):
+        try:
+            raw = base64.b64decode(header.split(" ", 1)[1].strip()).decode()
+            user, _, pw = raw.partition(":")
+        except Exception:
+            pw = ""
+    if secrets.compare_digest(pw, password):
+        return await call_next(request)
+    return Response(
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="VC Conf"'},
+        content="auth required",
+    )
 
 JOBS: dict[str, dict] = {}
 FILLS: dict[str, dict] = {}
@@ -131,6 +160,24 @@ def _busy_release(token: str | None = None) -> None:
 
 class PackBody(BaseModel):
     skip: list[int] = []
+
+
+class PartnerIn(BaseModel):
+    company: str
+    code: str = ""
+    reg_url: str = ""
+    notion_page_url: str = ""
+    posting_dates_raw: str = ""
+    first_post_date: str = ""
+
+
+class PubPatch(BaseModel):
+    date: Optional[str] = None
+    channel: Optional[str] = None
+    post_number: Optional[int] = None
+    needs_check: Optional[bool] = None
+    url: Optional[str] = None
+    notes: Optional[str] = None
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -502,6 +549,20 @@ def poster_materials(fill_id: str):
                 )
             except Exception as e:
                 notion_error = str(e)
+        if db.configured():
+            try:
+                partners.upsert_partner(
+                    company=company,
+                    code=promo,
+                    reg_url=track,
+                    notion_page_url=notion_url,
+                    posting_dates_raw=posting_dates,
+                    first_post_date=first_post_date,
+                    confirmed=True,
+                    rebuild_pubs=True,
+                )
+            except Exception as e:
+                notion_error = (notion_error + " | " if notion_error else "") + f"БД: {e}"
     except Exception as e:
         raise HTTPException(400, str(e)) from e
     finally:
@@ -907,6 +968,96 @@ def batch_pack(job_id: str, body: PackBody):
         headers={"Content-Disposition": _disposition(name)},
         background=BackgroundTask(dest.unlink, missing_ok=True),
     )
+
+
+@app.get("/import", response_class=HTMLResponse)
+def import_page() -> str:
+    return (STATIC / "import.html").read_text()
+
+
+@app.get("/api/db")
+def db_status():
+    if not db.configured():
+        return {"ok": False, "hint": db.MISSING}
+    try:
+        with db.connect() as conn:
+            n = conn.execute("SELECT count(*) FROM partner").fetchone()[0]
+        return {"ok": True, "partners": n}
+    except Exception as e:
+        msg = str(e)
+        hint = ""
+        if "channel_binding" in msg.lower():
+            hint = "Убери channel_binding из DATABASE_URL в Neon/Render."
+        return JSONResponse({"ok": False, "error": msg, "hint": hint}, status_code=503)
+
+
+@app.get("/api/import/scan")
+def import_scan():
+    try:
+        return {"scanned": partners.scan_r2_kits()}
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/import/from-r2")
+def import_from_r2():
+    try:
+        return partners.import_from_r2()
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.get("/api/import/partners")
+def import_partners():
+    try:
+        return {"partners": partners.unconfirmed()}
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/import/partners")
+def import_add_partner(body: PartnerIn):
+    try:
+        return partners.upsert_partner(
+            company=body.company,
+            code=body.code,
+            reg_url=body.reg_url,
+            notion_page_url=body.notion_page_url,
+            posting_dates_raw=body.posting_dates_raw,
+            first_post_date=body.first_post_date,
+            confirmed=False,
+            rebuild_pubs=True,
+        )
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.patch("/api/import/publications/{pub_id}")
+def import_patch_pub(pub_id: int, body: PubPatch):
+    fields = body.model_dump(exclude_none=True)
+    if "date" in fields:
+        fields["date"] = date.fromisoformat(fields["date"])
+    try:
+        return partners.update_publication(pub_id, **fields)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.delete("/api/import/publications/{pub_id}")
+def import_del_pub(pub_id: int):
+    try:
+        partners.delete_publication(pub_id)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    return {"ok": True}
+
+
+@app.post("/api/import/partners/{pid}/confirm")
+def import_confirm(pid: int):
+    try:
+        return partners.confirm_partner(pid)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
 
 
 @app.get("/health")

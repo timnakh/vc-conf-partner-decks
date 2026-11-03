@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Проверка импорта MP</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --ink:#0B1220; --muted:#475569; --line:#f1e4c8; --orange:#F9A72A; }
+    * { box-sizing: border-box; }
+    body { margin:0; font: 15px/1.45 Inter, ui-sans-serif, system-ui, sans-serif; color:var(--ink);
+      background: linear-gradient(180deg, #fff4d6 0%, #fffaf3 28%, #f4f7ff 100%); min-height:100vh; }
+    main { max-width: 1100px; margin: 36px auto; padding: 0 20px 80px; }
+    a { color:#1f60e0; }
+    h1 { font-size:28px; letter-spacing:-.03em; margin:0 0 8px; }
+    .lead { color:var(--muted); margin:0 0 22px; }
+    section { background:#fff; border:1px solid var(--line); border-radius:20px; padding:20px 22px; margin-bottom:16px; }
+    h2 { font-size:17px; margin:0 0 12px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #f1e4c8; vertical-align:top; }
+    th { color:var(--muted); font-weight:600; }
+    .miss { color:#b91c1c; }
+    .ok { color:#166534; }
+    button { background:var(--ink); color:#fff; border:0; border-radius:10px; padding:8px 14px; font:600 13px Inter, sans-serif; cursor:pointer; }
+    button.ghost { background:#fff; color:var(--ink); border:1px solid #ead9b3; }
+    button:disabled { opacity:.5; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+    input, textarea, select { font:inherit; padding:8px 10px; border:1px solid #ead9b3; border-radius:10px; background:#fffef9; }
+    input[type=text], input[type=url], textarea { width:100%; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .card { border:1px solid #f1e4c8; border-radius:14px; padding:14px; margin-top:12px; }
+    .err { color:#b91c1c; }
+    .hint { font-size:13px; color:var(--muted); }
+    .pubs input { width:auto; }
+  </style>
+</head>
+<body>
+<main>
+  <p class="hint"><a href="/">← киты</a></p>
+  <h1>Проверка импорта медиапартнёров</h1>
+  <p class="lead">Киты из R2 <code>vc-conf-2027/poster-mp/</code>. После проверки нажми «Подтвердить» — тогда выходы попадут в календарь.</p>
+
+  <section>
+    <h2>Что лежит в R2</h2>
+    <div class="row">
+      <button type="button" id="btn-scan">Сканировать R2</button>
+      <button type="button" class="ghost" id="btn-import">Записать в БД как черновики</button>
+      <span id="scan-status" class="hint"></span>
+    </div>
+    <div id="scan-err" class="err"></div>
+    <div style="overflow:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Компания</th><th>Код</th><th>Ссылка</th><th>Даты</th><th>First post</th><th>Не хватает</th>
+          </tr>
+        </thead>
+        <tbody id="scan-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>+ партнёр вручную</h2>
+    <form id="add-form">
+      <div class="grid">
+        <div><label>Company</label><input name="company" required /></div>
+        <div><label>Code</label><input name="code" /></div>
+        <div><label>Reg URL</label><input name="reg_url" /></div>
+        <div><label>Notion URL</label><input name="notion_page_url" /></div>
+      </div>
+      <p><label>Posting dates (текст)</label>
+        <textarea name="posting_dates_raw" rows="2" placeholder="by Nov 20, early Dec, early Jan, Jan 19–22"></textarea></p>
+      <button type="submit">Создать черновик</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Черновики — поправь даты и подтверди</h2>
+    <div id="drafts"></div>
+  </section>
+</main>
+<script>
+  async function j(url, opts) {
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { detail: text }; }
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    return data;
+  }
+  function cell(v) { return v ? String(v) : "—"; }
+  function renderScan(rows) {
+    const tb = document.getElementById("scan-body");
+    tb.innerHTML = (rows || []).map(r => `
+      <tr>
+        <td>${cell(r.company)}</td>
+        <td>${cell(r.code)}</td>
+        <td>${r.reg_url ? `<a href="${r.reg_url}">${r.reg_url}</a>` : "—"}</td>
+        <td>${cell(r.posting_dates)}</td>
+        <td>${cell(r.first_post_date)}</td>
+        <td class="${(r.missing||[]).length ? "miss" : "ok"}">${(r.missing||[]).join(", ") || "всё есть"}</td>
+      </tr>`).join("") || `<tr><td colspan="6">пусто</td></tr>`;
+  }
+  async function loadDrafts() {
+    const data = await j("/api/import/partners");
+    const box = document.getElementById("drafts");
+    if (!data.partners.length) { box.innerHTML = "<p class='hint'>Черновиков нет.</p>"; return; }
+    box.innerHTML = data.partners.map(p => `
+      <div class="card" data-id="${p.id}">
+        <strong>${p.company}</strong>
+        <div class="hint">code ${p.code || "—"} · ${p.reg_url || "нет ссылки"}</div>
+        <div class="hint">исходный текст: ${p.posting_dates_raw || "—"}</div>
+        <table class="pubs">${p.publications.map(pub => `
+          <tr data-pub="${pub.id}">
+            <td><input type="date" value="${pub.date}" data-f="date" /></td>
+            <td>
+              <select data-f="channel">
+                <option ${pub.channel==="newsletter"?"selected":""}>newsletter</option>
+                <option ${pub.channel==="linkedin"?"selected":""}>linkedin</option>
+                <option ${pub.channel==="other"?"selected":""}>other</option>
+              </select>
+            </td>
+            <td>
+              <select data-f="post_number">
+                ${[1,2,3,4].map(n => `<option value="${n}" ${pub.post_number===n?"selected":""}>Post ${n}</option>`).join("")}
+              </select>
+            </td>
+            <td>${pub.needs_check ? "нужна проверка" : ""}</td>
+            <td><button type="button" class="ghost del" data-pub="${pub.id}">удалить</button></td>
+          </tr>`).join("")}</table>
+        <div class="row">
+          <button type="button" class="save">Сохранить правки</button>
+          <button type="button" class="confirm">Подтвердить</button>
+        </div>
+      </div>`).join("");
+  }
+  document.getElementById("btn-scan").onclick = async () => {
+    const st = document.getElementById("scan-status");
+    const err = document.getElementById("scan-err");
+    err.textContent = ""; st.textContent = "сканирую…";
+    try {
+      const data = await j("/api/import/scan");
+      renderScan(data.scanned);
+      st.textContent = data.scanned.length + " китов (уникальные компании)";
+    } catch (e) { err.textContent = e.message; st.textContent = ""; }
+  };
+  document.getElementById("btn-import").onclick = async () => {
+    const st = document.getElementById("scan-status");
+    const err = document.getElementById("scan-err");
+    err.textContent = ""; st.textContent = "пишу в Neon…";
+    try {
+      const data = await j("/api/import/from-r2", { method: "POST" });
+      renderScan(data.scanned);
+      st.textContent = `записано ${data.imported.length}, без компании ${data.skipped.length}`;
+      await loadDrafts();
+    } catch (e) { err.textContent = e.message; st.textContent = ""; }
+  };
+  document.getElementById("add-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const body = Object.fromEntries(fd.entries());
+    await j("/api/import/partners", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    e.target.reset();
+    await loadDrafts();
+  };
+  document.getElementById("drafts").addEventListener("click", async (e) => {
+    const card = e.target.closest(".card");
+    if (!card) return;
+    const id = card.dataset.id;
+    if (e.target.classList.contains("del")) {
+      await j("/api/import/publications/" + e.target.dataset.pub, { method:"DELETE" });
+      await loadDrafts();
+      return;
+    }
+    if (e.target.classList.contains("save")) {
+      for (const tr of card.querySelectorAll("tr[data-pub]")) {
+        const pub = tr.dataset.pub;
+        const payload = {};
+        tr.querySelectorAll("[data-f]").forEach(el => {
+          payload[el.dataset.f] = el.dataset.f === "post_number" ? Number(el.value) : el.value;
+        });
+        await j("/api/import/publications/" + pub, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+      }
+      return;
+    }
+    if (e.target.classList.contains("confirm")) {
+      await j("/api/import/partners/" + id + "/confirm", { method:"POST" });
+      await loadDrafts();
+    }
+  });
+  loadDrafts().catch(e => { document.getElementById("drafts").innerHTML = "<p class='err'>"+e.message+"</p>"; });
+</script>
+</body>
+</html>

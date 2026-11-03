@@ -82,3 +82,51 @@ def put_file(key: str, data: bytes, filename: str, content_type: str) -> str:
 
 def put_pdf(key: str, data: bytes, filename: str) -> str:
     return put_file(key, data, filename, "application/pdf")
+
+
+def _client():
+    import boto3
+    from botocore.config import Config
+
+    return boto3.client(
+        "s3",
+        endpoint_url=os.environ["S3_ENDPOINT"].rstrip("/"),
+        aws_access_key_id=os.environ["S3_ACCESS_KEY_ID"],
+        aws_secret_access_key=os.environ["S3_SECRET_ACCESS_KEY"],
+        region_name=os.environ.get("S3_REGION") or "auto",
+        config=Config(signature_version="s3v4"),
+    )
+
+
+def list_keys(prefix: str) -> list[dict]:
+    if not configured():
+        raise RuntimeError(MISSING)
+    client = _client()
+    bucket = os.environ["S3_BUCKET"].strip()
+    out: list[dict] = []
+    token = None
+    while True:
+        kw = {"Bucket": bucket, "Prefix": prefix, "MaxKeys": 1000}
+        if token:
+            kw["ContinuationToken"] = token
+        resp = client.list_objects_v2(**kw)
+        for obj in resp.get("Contents") or []:
+            out.append(
+                {
+                    "key": obj["Key"],
+                    "last_modified": obj["LastModified"],
+                    "size": obj["Size"],
+                    "url": public_url(obj["Key"]),
+                }
+            )
+        if not resp.get("IsTruncated"):
+            break
+        token = resp.get("NextContinuationToken")
+    return out
+
+
+def get_bytes(key: str) -> bytes:
+    if not configured():
+        raise RuntimeError(MISSING)
+    resp = _client().get_object(Bucket=os.environ["S3_BUCKET"].strip(), Key=key)
+    return resp["Body"].read()
