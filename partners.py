@@ -232,7 +232,7 @@ def scan_r2_kits() -> list[dict]:
 def _partner_row(cur, pid: int) -> dict | None:
     row = cur.execute(
         "SELECT id, company, code, reg_url, notion_page_url, posting_dates_raw, "
-        "first_post_date, confirmed, created_at FROM partner WHERE id=%s",
+        "first_post_date, confirmed, created_at, notes FROM partner WHERE id=%s",
         (pid,),
     ).fetchone()
     if not row:
@@ -247,7 +247,36 @@ def _partner_row(cur, pid: int) -> dict | None:
         "first_post_date": row[6],
         "confirmed": row[7],
         "created_at": row[8].isoformat() if row[8] else "",
+        "notes": row[9] or "",
+        "status": "подтверждён" if row[7] else "черновик",
     }
+
+
+def _changes(cur, pub_id: int) -> list[dict]:
+    rows = cur.execute(
+        "SELECT field, old_value, new_value, created_at FROM publication_change "
+        "WHERE publication_id=%s ORDER BY created_at",
+        (pub_id,),
+    ).fetchall()
+    return [
+        {
+            "field": r[0],
+            "old_value": r[1],
+            "new_value": r[2],
+            "created_at": r[3].isoformat() if r[3] else "",
+        }
+        for r in rows
+    ]
+
+
+def _log_change(cur, partner_id: int, publication_id: int | None, field: str, old: str, new: str) -> None:
+    if str(old) == str(new):
+        return
+    cur.execute(
+        "INSERT INTO publication_change (publication_id, partner_id, field, old_value, new_value) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (publication_id, partner_id, field, str(old or ""), str(new or "")),
+    )
 
 
 def _pubs(cur, pid: int) -> list[dict]:
@@ -273,6 +302,7 @@ def _pubs(cur, pid: int) -> list[dict]:
                 "reminded_at": r[8].isoformat() if r[8] else "",
                 "published_at": r[9].isoformat() if r[9] else "",
                 "updated_at": r[10].isoformat() if r[10] else "",
+                "changes": _changes(cur, r[0]),
             }
         )
     return out
@@ -347,8 +377,8 @@ def upsert_partner(
         else:
             row = cur.execute(
                 "INSERT INTO partner (company, code, reg_url, notion_page_url, posting_dates_raw, "
-                "first_post_date, confirmed) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                (company, code, reg_url, notion_page_url, posting_dates_raw, first_post_date, confirmed),
+                "first_post_date, confirmed, notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                (company, code, reg_url, notion_page_url, posting_dates_raw, first_post_date, confirmed, ""),
             ).fetchone()
             pid = row[0]
             if rebuild_pubs:
@@ -397,33 +427,68 @@ def unconfirmed() -> list[dict]:
 
 def update_publication(pid: int, **fields) -> dict:
     allowed = {"date", "channel", "post_number", "status", "needs_check", "url", "notes"}
-    sets = []
-    vals = []
-    for k, v in fields.items():
-        if k not in allowed:
-            continue
-        sets.append(f"{k}=%s")
-        vals.append(v)
-    if not sets:
-        raise ValueError("нечего менять")
-    sets.append("updated_at=NOW()")
-    vals.append(pid)
     with db.connect() as conn:
         cur = conn.cursor()
+        old = cur.execute(
+            "SELECT partner_id, date, channel, post_number, status, needs_check, url, notes "
+            "FROM publication WHERE id=%s",
+            (pid,),
+        ).fetchone()
+        if not old:
+            raise ValueError("нет такого выхода")
+        current = {
+            "date": old[1],
+            "channel": old[2],
+            "post_number": old[3],
+            "status": old[4],
+            "needs_check": old[5],
+            "url": old[6],
+            "notes": old[7],
+        }
+        sets = []
+        vals = []
+        for k, v in fields.items():
+            if k not in allowed:
+                continue
+            sets.append(f"{k}=%s")
+            vals.append(v)
+            before = current[k]
+            after = v
+            if k == "date":
+                before = before.isoformat() if hasattr(before, "isoformat") else str(before)
+                after = after.isoformat() if hasattr(after, "isoformat") else str(after)
+            _log_change(cur, old[0], pid, k, before, after)
+        if not sets:
+            raise ValueError("нечего менять")
+        sets.append("updated_at=NOW()")
+        vals.append(pid)
         cur.execute(
             f"UPDATE publication SET {', '.join(sets)} WHERE id=%s RETURNING partner_id",
             vals,
         )
         row = cur.fetchone()
-        if not row:
-            raise ValueError("нет такого выхода")
         conn.commit()
         return {"ok": True, "partner_id": row[0]}
 
 
 def delete_publication(pid: int) -> None:
     with db.connect() as conn:
-        conn.execute("DELETE FROM publication WHERE id=%s", (pid,))
+        cur = conn.cursor()
+        row = cur.execute(
+            "SELECT partner_id, date, channel, post_number FROM publication WHERE id=%s",
+            (pid,),
+        ).fetchone()
+        if not row:
+            raise ValueError("нет такого выхода")
+        _log_change(
+            cur,
+            row[0],
+            pid,
+            "deleted",
+            f"{row[1].isoformat()} {row[2]} post {row[3]}",
+            "",
+        )
+        cur.execute("DELETE FROM publication WHERE id=%s", (pid,))
         conn.commit()
 
 
@@ -451,3 +516,294 @@ def confirm_partner(pid: int) -> dict:
         )
         conn.commit()
         return {**_partner_row(cur, pid), "publications": _pubs(cur, pid)}
+
+
+def _full(cur, pid: int) -> dict:
+    partner = _partner_row(cur, pid)
+    if not partner:
+        raise ValueError("нет такого партнёра")
+    partner["publications"] = _pubs(cur, pid)
+    return partner
+
+
+def find_partner(company: str = "", code: str = "") -> dict | None:
+    company = (company or "").strip()
+    code = (code or "").strip().upper()
+    with db.connect() as conn:
+        cur = conn.cursor()
+        row = None
+        if company:
+            row = cur.execute(
+                "SELECT id FROM partner WHERE lower(company)=lower(%s)",
+                (company,),
+            ).fetchone()
+        if not row and code:
+            row = cur.execute(
+                "SELECT id FROM partner WHERE code<>'' AND lower(code)=lower(%s)",
+                (code,),
+            ).fetchone()
+        if not row:
+            return None
+        return _full(cur, row[0])
+
+
+def get_partner(pid: int) -> dict:
+    with db.connect() as conn:
+        return _full(conn.cursor(), pid)
+
+
+def list_partners(q: str = "") -> list[dict]:
+    q = (q or "").strip()
+    with db.connect() as conn:
+        cur = conn.cursor()
+        if q:
+            like = f"%{q}%"
+            ids = [
+                r[0]
+                for r in cur.execute(
+                    "SELECT id FROM partner WHERE company ILIKE %s OR code ILIKE %s "
+                    "OR reg_url ILIKE %s ORDER BY confirmed DESC, lower(company)",
+                    (like, like, like),
+                ).fetchall()
+            ]
+        else:
+            ids = [
+                r[0]
+                for r in cur.execute(
+                    "SELECT id FROM partner ORDER BY confirmed DESC, lower(company)"
+                ).fetchall()
+            ]
+        out = []
+        for i in ids:
+            row = _partner_row(cur, i)
+            n = cur.execute(
+                "SELECT count(*) FROM publication WHERE partner_id=%s", (i,)
+            ).fetchone()[0]
+            row["pub_count"] = n
+            out.append(row)
+        return out
+
+
+def save_partner(pid: int, **fields) -> dict:
+    allowed = {
+        "company",
+        "code",
+        "reg_url",
+        "notion_page_url",
+        "posting_dates_raw",
+        "first_post_date",
+        "notes",
+        "confirmed",
+    }
+    sets = []
+    vals = []
+    for k, v in fields.items():
+        if k not in allowed or v is None:
+            continue
+        if k == "code":
+            v = str(v).strip().upper()
+        elif k == "confirmed":
+            v = bool(v)
+        else:
+            v = str(v).strip() if isinstance(v, str) else v
+        sets.append(f"{k}=%s")
+        vals.append(v)
+    if not sets:
+        return get_partner(pid)
+    vals.append(pid)
+    with db.connect() as conn:
+        cur = conn.cursor()
+        cur.execute(f"UPDATE partner SET {', '.join(sets)} WHERE id=%s RETURNING id", vals)
+        if not cur.fetchone():
+            raise ValueError("нет такого партнёра")
+        conn.commit()
+        return _full(cur, pid)
+
+
+def add_publication(
+    partner_id: int,
+    *,
+    date_value: date,
+    channel: str,
+    post_number: int,
+    notes: str = "",
+    url: str = "",
+) -> dict:
+    channel = (channel or "newsletter").strip().lower()
+    if channel not in ("newsletter", "linkedin", "other"):
+        raise ValueError("канал: newsletter, linkedin или other")
+    post_number = int(post_number)
+    if post_number < 1 or post_number > 4:
+        raise ValueError("номер поста 1–4")
+    with db.connect() as conn:
+        cur = conn.cursor()
+        if not _partner_row(cur, partner_id):
+            raise ValueError("нет такого партнёра")
+        row = cur.execute(
+            "INSERT INTO publication (partner_id, date, channel, post_number, status, needs_check, notes, url) "
+            "VALUES (%s, %s, %s, %s, 'planned', TRUE, %s, %s) RETURNING id",
+            (partner_id, date_value, channel, post_number, notes or "", url or ""),
+        ).fetchone()
+        _log_change(
+            cur,
+            partner_id,
+            row[0],
+            "created",
+            "",
+            f"{date_value.isoformat()} {channel} post {post_number}",
+        )
+        conn.commit()
+        return _full(cur, partner_id)
+
+
+def pub_key(row: dict) -> tuple:
+    return (int(row["post_number"]), row["channel"])
+
+
+def diff_publications(existing: list[dict], wanted: list[dict]) -> dict:
+    have = {pub_key(r): r for r in existing}
+    want = {pub_key(r): r for r in wanted}
+    added, removed, changed = [], [], []
+    for k, w in want.items():
+        if k not in have:
+            added.append(
+                {
+                    "date": w["date"].isoformat() if hasattr(w["date"], "isoformat") else str(w["date"]),
+                    "channel": w["channel"],
+                    "post_number": w["post_number"],
+                    "notes": w.get("notes") or "",
+                }
+            )
+        else:
+            old = have[k]
+            old_d = old["date"] if isinstance(old["date"], str) else old["date"].isoformat()
+            new_d = w["date"].isoformat() if hasattr(w["date"], "isoformat") else str(w["date"])
+            if old_d != new_d:
+                changed.append(
+                    {
+                        "id": old.get("id"),
+                        "channel": w["channel"],
+                        "post_number": w["post_number"],
+                        "old_date": old_d,
+                        "new_date": new_d,
+                        "status": old.get("status") or "planned",
+                    }
+                )
+    for k, old in have.items():
+        if k not in want:
+            removed.append(
+                {
+                    "id": old.get("id"),
+                    "date": old["date"] if isinstance(old["date"], str) else old["date"].isoformat(),
+                    "channel": old["channel"],
+                    "post_number": old["post_number"],
+                    "status": old.get("status") or "planned",
+                    "url": old.get("url") or "",
+                }
+            )
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def preview_rebuild(pid: int, posting_dates_raw: str, first_post_date: str = "") -> dict:
+    partner = get_partner(pid)
+    wanted = parse_posting_dates(posting_dates_raw, first_post_date)
+    diff = diff_publications(partner["publications"], wanted)
+    diff["partner_id"] = pid
+    diff["posting_dates_raw"] = posting_dates_raw
+    diff["first_post_date"] = first_post_date
+    return diff
+
+
+def apply_rebuild(pid: int, posting_dates_raw: str, first_post_date: str = "") -> dict:
+    wanted = parse_posting_dates(posting_dates_raw, first_post_date)
+    with db.connect() as conn:
+        cur = conn.cursor()
+        partner = _full(cur, pid)
+        diff = diff_publications(partner["publications"], wanted)
+        have = {pub_key(r): r for r in partner["publications"]}
+        want = {pub_key(r): r for r in wanted}
+        for item in diff["changed"]:
+            old = have[(item["post_number"], item["channel"])]
+            new_d = date.fromisoformat(item["new_date"])
+            _log_change(cur, pid, old["id"], "date", item["old_date"], item["new_date"])
+            cur.execute(
+                "UPDATE publication SET date=%s, needs_check=TRUE, updated_at=NOW() WHERE id=%s",
+                (new_d, old["id"]),
+            )
+        for item in diff["added"]:
+            w = want[(item["post_number"], item["channel"])]
+            row = cur.execute(
+                "INSERT INTO publication (partner_id, date, channel, post_number, status, needs_check, notes) "
+                "VALUES (%s, %s, %s, %s, 'planned', TRUE, %s) RETURNING id",
+                (pid, w["date"], w["channel"], w["post_number"], w.get("notes") or ""),
+            ).fetchone()
+            _log_change(
+                cur,
+                pid,
+                row[0],
+                "created",
+                "",
+                f"{w['date'].isoformat()} {w['channel']} post {w['post_number']}",
+            )
+        for item in diff["removed"]:
+            old = have[(item["post_number"], item["channel"])]
+            _log_change(
+                cur,
+                pid,
+                old["id"],
+                "deleted",
+                f"{item['date']} {item['channel']} post {item['post_number']}",
+                "",
+            )
+            cur.execute("DELETE FROM publication WHERE id=%s", (old["id"],))
+        cur.execute(
+            "UPDATE partner SET posting_dates_raw=%s, first_post_date=%s WHERE id=%s",
+            (posting_dates_raw or "", first_post_date or "", pid),
+        )
+        conn.commit()
+        return _full(cur, pid)
+
+
+def create_or_conflict(
+    *,
+    company: str,
+    code: str = "",
+    reg_url: str = "",
+    notion_page_url: str = "",
+    posting_dates_raw: str = "",
+    first_post_date: str = "",
+    notes: str = "",
+    confirmed: bool = False,
+    update_existing: bool = False,
+    rebuild_pubs: bool | None = None,
+) -> dict:
+    existing = find_partner(company, code)
+    if existing and not update_existing:
+        return {"conflict": True, "existing": existing, "partner": existing}
+    if existing:
+        partner = upsert_partner(
+            company=company or existing["company"],
+            code=code or existing["code"],
+            reg_url=reg_url,
+            notion_page_url=notion_page_url,
+            posting_dates_raw=posting_dates_raw,
+            first_post_date=first_post_date,
+            confirmed=confirmed,
+            rebuild_pubs=False if rebuild_pubs is None else rebuild_pubs,
+        )
+        if notes:
+            partner = save_partner(partner["id"], notes=notes)
+        return {"conflict": False, "existing": existing, "partner": partner}
+    partner = upsert_partner(
+        company=company,
+        code=code,
+        reg_url=reg_url,
+        notion_page_url=notion_page_url,
+        posting_dates_raw=posting_dates_raw,
+        first_post_date=first_post_date,
+        confirmed=confirmed,
+        rebuild_pubs=True if rebuild_pubs is None else rebuild_pubs,
+    )
+    if notes:
+        partner = save_partner(partner["id"], notes=notes)
+    return {"conflict": False, "existing": None, "partner": partner}

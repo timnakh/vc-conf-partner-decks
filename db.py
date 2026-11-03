@@ -39,6 +39,20 @@ CREATE TABLE IF NOT EXISTS publication (
 );
 CREATE INDEX IF NOT EXISTS publication_partner_idx ON publication (partner_id);
 CREATE INDEX IF NOT EXISTS publication_date_idx ON publication (date);
+
+ALTER TABLE partner ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS publication_change (
+  id SERIAL PRIMARY KEY,
+  publication_id INTEGER REFERENCES publication(id) ON DELETE SET NULL,
+  partner_id INTEGER NOT NULL REFERENCES partner(id) ON DELETE CASCADE,
+  field TEXT NOT NULL,
+  old_value TEXT NOT NULL DEFAULT '',
+  new_value TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS publication_change_pub_idx ON publication_change (publication_id);
+CREATE INDEX IF NOT EXISTS publication_change_partner_idx ON publication_change (partner_id);
 """
 
 _POOL = None

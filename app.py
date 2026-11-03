@@ -169,6 +169,33 @@ class PartnerIn(BaseModel):
     notion_page_url: str = ""
     posting_dates_raw: str = ""
     first_post_date: str = ""
+    notes: str = ""
+    update: bool = False
+    confirmed: bool = False
+
+
+class PartnerPatch(BaseModel):
+    company: Optional[str] = None
+    code: Optional[str] = None
+    reg_url: Optional[str] = None
+    notion_page_url: Optional[str] = None
+    posting_dates_raw: Optional[str] = None
+    first_post_date: Optional[str] = None
+    notes: Optional[str] = None
+    confirmed: Optional[bool] = None
+
+
+class PubCreate(BaseModel):
+    date: str
+    channel: str = "newsletter"
+    post_number: int = 1
+    notes: str = ""
+    url: str = ""
+
+
+class RebuildIn(BaseModel):
+    posting_dates_raw: str = ""
+    first_post_date: str = ""
 
 
 class ImportR2In(BaseModel):
@@ -443,7 +470,7 @@ def notion_status():
 
 
 @app.post("/poster/{fill_id}/materials")
-def poster_materials(fill_id: str):
+def poster_materials(fill_id: str, update_partner: bool = False):
     item = FILLS.get(fill_id)
     if not item:
         raise HTTPException(404, "превью уже не доступно — собери ещё раз")
@@ -553,9 +580,11 @@ def poster_materials(fill_id: str):
                 )
             except Exception as e:
                 notion_error = str(e)
+        partner_conflict = False
+        partner_id = 0
         if db.configured():
             try:
-                partners.upsert_partner(
+                saved = partners.create_or_conflict(
                     company=company,
                     code=promo,
                     reg_url=track,
@@ -563,8 +592,11 @@ def poster_materials(fill_id: str):
                     posting_dates_raw=posting_dates,
                     first_post_date=first_post_date,
                     confirmed=True,
-                    rebuild_pubs=True,
+                    update_existing=update_partner,
+                    rebuild_pubs=None,
                 )
+                partner_conflict = bool(saved.get("conflict"))
+                partner_id = (saved.get("partner") or saved.get("existing") or {}).get("id") or 0
             except Exception as e:
                 notion_error = (notion_error + " | " if notion_error else "") + f"БД: {e}"
     except Exception as e:
@@ -582,6 +614,8 @@ def poster_materials(fill_id: str):
             "notion_url": notion_url,
             "notion_error": notion_error,
             "hint": "" if notion_url else notionmod.MISSING,
+            "partner_conflict": partner_conflict,
+            "partner_id": partner_id,
         }
     )
 
@@ -979,6 +1013,104 @@ def import_page() -> str:
     return (STATIC / "import.html").read_text()
 
 
+@app.get("/partners", response_class=HTMLResponse)
+def partners_page() -> str:
+    return (STATIC / "partners.html").read_text()
+
+
+@app.get("/partners/{pid}", response_class=HTMLResponse)
+def partner_page(pid: int) -> str:
+    return (STATIC / "partner.html").read_text()
+
+
+@app.get("/api/partners")
+def api_partners(q: str = ""):
+    try:
+        return {"partners": partners.list_partners(q)}
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/partners")
+def api_add_partner(body: PartnerIn):
+    if not partners.ready_for_db(body.company, body.code):
+        raise HTTPException(400, "нужны company и code")
+    try:
+        saved = partners.create_or_conflict(
+            company=body.company,
+            code=body.code,
+            reg_url=body.reg_url,
+            notion_page_url=body.notion_page_url,
+            posting_dates_raw=body.posting_dates_raw,
+            first_post_date=body.first_post_date,
+            notes=body.notes,
+            confirmed=body.confirmed,
+            update_existing=body.update,
+        )
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    if saved.get("conflict"):
+        return JSONResponse(saved, status_code=409)
+    return saved
+
+
+@app.get("/api/partners/{pid}")
+def api_get_partner(pid: int):
+    try:
+        return partners.get_partner(pid)
+    except Exception as e:
+        raise HTTPException(404, str(e)) from e
+
+
+@app.patch("/api/partners/{pid}")
+def api_patch_partner(pid: int, body: PartnerPatch):
+    try:
+        return partners.save_partner(pid, **body.model_dump(exclude_none=True))
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/partners/{pid}/publications")
+def api_add_pub(pid: int, body: PubCreate):
+    try:
+        return partners.add_publication(
+            pid,
+            date_value=date.fromisoformat(body.date),
+            channel=body.channel,
+            post_number=body.post_number,
+            notes=body.notes,
+            url=body.url,
+        )
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/partners/{pid}/rebuild-preview")
+def api_rebuild_preview(pid: int, body: RebuildIn):
+    try:
+        return partners.preview_rebuild(pid, body.posting_dates_raw, body.first_post_date)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/partners/{pid}/rebuild")
+def api_rebuild(pid: int, body: RebuildIn):
+    try:
+        return partners.apply_rebuild(pid, body.posting_dates_raw, body.first_post_date)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.patch("/api/publications/{pub_id}")
+def api_patch_pub(pub_id: int, body: PubPatch):
+    return import_patch_pub(pub_id, body)
+
+
+@app.delete("/api/publications/{pub_id}")
+def api_del_pub(pub_id: int):
+    return import_del_pub(pub_id)
+
+
 @app.get("/api/db")
 def db_status():
     if not db.configured():
@@ -1021,21 +1153,7 @@ def import_partners():
 
 @app.post("/api/import/partners")
 def import_add_partner(body: PartnerIn):
-    if not partners.ready_for_db(body.company, body.code):
-        raise HTTPException(400, "нужны company и code")
-    try:
-        return partners.upsert_partner(
-            company=body.company,
-            code=body.code,
-            reg_url=body.reg_url,
-            notion_page_url=body.notion_page_url,
-            posting_dates_raw=body.posting_dates_raw,
-            first_post_date=body.first_post_date,
-            confirmed=False,
-            rebuild_pubs=True,
-        )
-    except Exception as e:
-        raise HTTPException(400, str(e)) from e
+    return api_add_partner(body)
 
 
 @app.patch("/api/import/publications/{pub_id}")

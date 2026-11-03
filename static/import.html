@@ -39,7 +39,7 @@
 </head>
 <body>
 <main>
-  <p class="hint"><a href="/">← киты</a></p>
+  <p class="hint"><a href="/">← киты</a> · <a href="/partners">партнёры</a></p>
   <h1>Проверка импорта медиапартнёров</h1>
   <p class="lead">Киты из R2 <code>vc-conf-2027/poster-mp/</code>. После проверки нажми «Подтвердить» — тогда выходы попадут в календарь.</p>
 
@@ -125,7 +125,7 @@
     if (!data.partners.length) { box.innerHTML = "<p class='hint'>Черновиков нет.</p>"; return; }
     box.innerHTML = data.partners.map(p => `
       <div class="card" data-id="${p.id}">
-        <strong>${p.company}</strong>
+        <strong><a href="/partners/${p.id}">${p.company}</a></strong>
         <div class="hint">code ${p.code || "—"} · ${p.reg_url || "нет ссылки"}</div>
         <div class="hint">исходный текст: ${p.posting_dates_raw || "—"}</div>
         <table class="pubs">${p.publications.map(pub => `
@@ -182,7 +182,18 @@
     e.preventDefault();
     const fd = new FormData(e.target);
     const body = Object.fromEntries(fd.entries());
-    await j("/api/import/partners", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    const res = await fetch("/api/partners", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 409) {
+      if (confirm("Уже есть " + data.existing.company + ". Обновить существующего? Выходы не пересоберутся.")) {
+        body.update = true;
+        await j("/api/partners", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+      }
+      e.target.reset();
+      await loadDrafts();
+      return;
+    }
+    if (!res.ok) throw new Error(data.detail || res.statusText);
     e.target.reset();
     await loadDrafts();
   };

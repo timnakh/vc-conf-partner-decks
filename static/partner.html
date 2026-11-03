@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Карточка партнёра</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --ink:#0B1220; --muted:#475569; --line:#f1e4c8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font: 15px/1.45 Inter, ui-sans-serif, system-ui, sans-serif; color:var(--ink);
+      background: linear-gradient(180deg, #fff4d6 0%, #fffaf3 28%, #f4f7ff 100%); min-height:100vh; }
+    main { max-width: 960px; margin: 36px auto; padding: 0 20px 80px; }
+    a { color:#1f60e0; }
+    h1 { font-size:28px; letter-spacing:-.03em; margin:0 0 8px; }
+    h2 { font-size:17px; margin:0 0 12px; }
+    .hint { color:var(--muted); font-size:13px; }
+    section { background:#fff; border:1px solid var(--line); border-radius:20px; padding:20px 22px; margin-bottom:16px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #f1e4c8; vertical-align:top; }
+    button { background:var(--ink); color:#fff; border:0; border-radius:10px; padding:8px 14px; font:600 13px Inter, sans-serif; cursor:pointer; }
+    button.ghost { background:#fff; color:var(--ink); border:1px solid #ead9b3; }
+    input, textarea, select { font:inherit; padding:8px 10px; border:1px solid #ead9b3; border-radius:10px; background:#fffef9; }
+    input[type=text], input[type=url], textarea { width:100%; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+    .err { color:#b91c1c; }
+    .ok { color:#166534; }
+    .log { font-size:12px; color:var(--muted); }
+    .badge { display:inline-block; font-size:12px; padding:2px 8px; border-radius:99px; background:#f1e4c8; }
+    .badge.on { background:#dcfce7; }
+  </style>
+</head>
+<body>
+<main>
+  <p class="hint"><a href="/partners">← все партнёры</a> · <a href="/import">импорт</a></p>
+  <h1 id="title">Партнёр</h1>
+  <p class="hint" id="status"></p>
+  <div id="err" class="err"></div>
+  <section>
+    <h2>Карточка</h2>
+    <form id="card">
+      <div class="grid">
+        <div><label>Company</label><input name="company" required /></div>
+        <div><label>Code</label><input name="code" required /></div>
+        <div><label>Reg URL</label><input name="reg_url" /></div>
+        <div><label>Notion URL</label><input name="notion_page_url" /></div>
+      </div>
+      <p><label>Posting dates (текст)</label><textarea name="posting_dates_raw" rows="3"></textarea></p>
+      <p><label>First post (необяз.)</label><input name="first_post_date" /></p>
+      <p><label>Заметки</label><textarea name="notes" rows="3" placeholder="Договорились на следующую неделю…"></textarea></p>
+      <div class="row">
+        <button type="submit">Сохранить карточку</button>
+        <button type="button" class="ghost" id="btn-preview">Пересобрать выходы из текста</button>
+      </div>
+      <p class="hint">Сохранение текста дат не трогает выходы. Пересборка — только после превью.</p>
+      <div id="save-ok" class="ok"></div>
+    </form>
+    <div id="preview"></div>
+  </section>
+  <section>
+    <h2>Выходы</h2>
+    <div id="pubs"></div>
+    <form id="add-pub" class="row">
+      <input type="date" name="date" required />
+      <select name="channel">
+        <option>newsletter</option><option>linkedin</option><option>other</option>
+      </select>
+      <select name="post_number">
+        <option value="1">Post 1</option><option value="2">Post 2</option>
+        <option value="3">Post 3</option><option value="4">Post 4</option>
+      </select>
+      <button type="submit">+ выход</button>
+    </form>
+  </section>
+</main>
+<script>
+  const pid = Number(location.pathname.split("/").pop());
+  async function j(url, opts) {
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { detail: text }; }
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    return data;
+  }
+  function esc(v) { return String(v ?? "").replace(/[&<>"]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s])); }
+  function render(p) {
+    document.getElementById("title").textContent = p.company;
+    document.getElementById("status").innerHTML = `<span class="badge ${p.confirmed ? "on" : ""}">${esc(p.status)}</span>`;
+    const f = document.getElementById("card");
+    for (const name of ["company","code","reg_url","notion_page_url","posting_dates_raw","first_post_date","notes"]) {
+      f[name].value = p[name] || "";
+    }
+    document.getElementById("pubs").innerHTML = (p.publications || []).map(pub => `
+      <div class="card-pub" data-id="${pub.id}" style="border:1px solid #f1e4c8;border-radius:12px;padding:10px;margin:8px 0;">
+        <div class="row">
+          <input type="date" data-f="date" value="${pub.date}" />
+          <select data-f="channel">
+            ${["newsletter","linkedin","other"].map(c => `<option ${pub.channel===c?"selected":""}>${c}</option>`).join("")}
+          </select>
+          <select data-f="post_number">
+            ${[1,2,3,4].map(n => `<option value="${n}" ${pub.post_number===n?"selected":""}>Post ${n}</option>`).join("")}
+          </select>
+          <span class="badge">${esc(pub.status)}</span>
+          <button type="button" class="ghost save-pub">Сохранить</button>
+          <button type="button" class="ghost del-pub">Удалить</button>
+        </div>
+        <div class="log">${(pub.changes||[]).map(c => `${esc(c.created_at.slice(0,16))} · ${esc(c.field)}: ${esc(c.old_value)} → ${esc(c.new_value)}`).join("<br>") || "истории пока нет"}</div>
+      </div>`).join("") || "<p class='hint'>Выходов нет.</p>";
+  }
+  async function load() {
+    render(await j("/api/partners/" + pid));
+  }
+  document.getElementById("card").onsubmit = async (e) => {
+    e.preventDefault();
+    document.getElementById("save-ok").textContent = "";
+    const body = Object.fromEntries(new FormData(e.target).entries());
+    render(await j("/api/partners/" + pid, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) }));
+    document.getElementById("save-ok").textContent = "Карточка сохранена, выходы не пересобирались.";
+  };
+  document.getElementById("btn-preview").onclick = async () => {
+    const f = document.getElementById("card");
+    const diff = await j("/api/partners/" + pid + "/rebuild-preview", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ posting_dates_raw: f.posting_dates_raw.value, first_post_date: f.first_post_date.value })
+    });
+    const box = document.getElementById("preview");
+    const line = (arr, fn) => arr.length ? "<ul>" + arr.map(fn).join("") + "</ul>" : "<p class='hint'>нет</p>";
+    box.innerHTML = `
+      <h2>Превью пересборки</h2>
+      <p><b>Добавится</b></p>${line(diff.added, x => `<li>+ ${x.date} · ${x.channel} · Post ${x.post_number}</li>`)}
+      <p><b>Удалится</b></p>${line(diff.removed, x => `<li>− ${x.date} · ${x.channel} · Post ${x.post_number} (${x.status}${x.url ? ", есть URL" : ""})</li>`)}
+      <p><b>Изменится дата</b></p>${line(diff.changed, x => `<li>${x.channel} Post ${x.post_number}: ${x.old_date} → ${x.new_date} (${x.status})</li>`)}
+      <button type="button" id="btn-apply">Подтвердить пересборку</button>`;
+    document.getElementById("btn-apply").onclick = async () => {
+      const p = await j("/api/partners/" + pid + "/rebuild", {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ posting_dates_raw: f.posting_dates_raw.value, first_post_date: f.first_post_date.value })
+      });
+      box.innerHTML = "<p class='ok'>Выходы пересобраны.</p>";
+      render(p);
+    };
+  };
+  document.getElementById("pubs").addEventListener("click", async (e) => {
+    const card = e.target.closest("[data-id]");
+    if (!card) return;
+    const id = card.dataset.id;
+    if (e.target.classList.contains("del-pub")) {
+      await j("/api/publications/" + id, { method:"DELETE" });
+      await load();
+      return;
+    }
+    if (e.target.classList.contains("save-pub")) {
+      const payload = {};
+      card.querySelectorAll("[data-f]").forEach(el => {
+        payload[el.dataset.f] = el.dataset.f === "post_number" ? Number(el.value) : el.value;
+      });
+      await j("/api/publications/" + id, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+      await load();
+    }
+  });
+  document.getElementById("add-pub").onsubmit = async (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(e.target).entries());
+    body.post_number = Number(body.post_number);
+    render(await j("/api/partners/" + pid + "/publications", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) }));
+  };
+  load().catch(e => document.getElementById("err").textContent = e.message);
+</script>
+</body>
+</html>

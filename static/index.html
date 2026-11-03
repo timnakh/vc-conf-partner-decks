@@ -118,10 +118,11 @@
 <body>
   <main>
     <div class="queue" id="queue-banner"></div>
-    <p class="eyebrow">Virtual VC Conf 2027 · <a href="/import">импорт дат MP</a></p>
+    <p class="eyebrow">Virtual VC Conf 2027 · <a href="/partners">партнёры</a> · <a href="/import">импорт дат MP</a></p>
     <div class="tabs">
       <button type="button" class="tab on" id="tab-decks">Презентации</button>
       <button type="button" class="tab" id="tab-posters">Постеры</button>
+      <a class="tab" href="/partners" style="text-decoration:none;">Партнёры</a>
       <a class="tab" href="/import" style="text-decoration:none;">Импорт MP</a>
     </div>
     <div class="pane on" id="pane-decks">
@@ -787,6 +788,16 @@
             " Пока: ссылка на HTML или вставь markdown в Notion.";
         } else {
           note.textContent = data.hint || "Скопируй markdown в Notion.";
+        }
+        if (data.partner_conflict && data.partner_id) {
+          const upd = confirm("Партнёр уже в БД. Обновить карточку полями из кита? Выходы не пересоберутся.");
+          if (upd) {
+            const res2 = await fetch("/poster/" + posterOneId + "/materials?update_partner=true", { method: "POST" });
+            if (res2.ok) note.textContent += " Карточка обновлена.";
+          }
+          note.innerHTML += ` <a href="/partners/${data.partner_id}">открыть карточку</a>`;
+        } else if (data.partner_id) {
+          note.innerHTML += ` <a href="/partners/${data.partner_id}">карточка в БД</a>`;
         }
         try { await navigator.clipboard.writeText(best); } catch (e) { /* select enough */ }
       } catch (ex) {
