@@ -156,9 +156,22 @@
                 ${[1,2,3,4].map(n => `<option value="${n}" ${pub.post_number===n?"selected":""}>Post ${n}</option>`).join("")}
               </select>
             </td>
+            <td><input type="text" data-f="notes" value="${(pub.notes||"").replace(/"/g,"&quot;")}" placeholder="заметка" /></td>
             <td>${pub.needs_check ? "нужна проверка" : ""}</td>
             <td><button type="button" class="ghost del" data-pub="${pub.id}">удалить</button></td>
           </tr>`).join("")}</table>
+        <form class="add-pub row">
+          <input type="date" name="date" required />
+          <select name="channel">
+            <option>newsletter</option><option>linkedin</option><option>other</option>
+          </select>
+          <select name="post_number">
+            <option value="1">Post 1</option><option value="2">Post 2</option>
+            <option value="3">Post 3</option><option value="4">Post 4</option>
+          </select>
+          <input type="text" name="notes" placeholder="заметка" />
+          <button type="submit">+ выход</button>
+        </form>
         <div class="row">
           <button type="button" class="save">Сохранить правки</button>
           <button type="button" class="confirm">Подтвердить</button>
@@ -209,6 +222,18 @@
     e.target.reset();
     await loadDrafts();
   };
+  document.getElementById("drafts").addEventListener("submit", async (e) => {
+    const form = e.target.closest(".add-pub");
+    if (!form) return;
+    e.preventDefault();
+    const card = form.closest(".card");
+    const body = Object.fromEntries(new FormData(form).entries());
+    body.post_number = Number(body.post_number);
+    await j("/api/partners/" + card.dataset.id + "/publications", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    });
+    await loadDrafts();
+  });
   document.getElementById("drafts").addEventListener("click", async (e) => {
     const card = e.target.closest(".card");
     if (!card) return;

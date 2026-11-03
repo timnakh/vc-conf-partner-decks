@@ -32,46 +32,142 @@ def _weekday(d: date) -> tuple[date, bool]:
     return d, False
 
 
+_MONTH = (
+    r"jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|"
+    r"aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
+)
+_DATE_RE = re.compile(
+    rf"(?:(?P<qual>early|mid|late|by|starting)\s+)?(?P<mon>{_MONTH})\.?"
+    rf"(?:\s+(?P<day>\d{{1,2}})(?:\s*[–\-]\s*(?P<day2>\d{{1,2}}))?)?",
+    re.I,
+)
+
+
 def _parse_one_date(text: str) -> tuple[date | None, bool]:
     raw = (text or "").strip()
     if not raw:
         return None, True
     low = raw.lower().replace("–", "-").replace("—", "-")
-    if "next week" in low:
-        today = date.today()
-        d = today + timedelta(days=(7 - today.weekday()) % 7 or 7)
-        d, _ = _weekday(d)
-        return d, True
-    early = "early" in low
     m = re.search(
-        r"\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|"
-        r"aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
-        r"\.?\s*(\d{1,2})(?:\s*-\s*(\d{1,2}))?",
+        rf"\b({_MONTH})\.?\s*(\d{{1,2}})(?:\s*-\s*(\d{{1,2}}))?",
         low,
     )
     if m:
         month = MONTHS.get(m.group(1)) or MONTHS.get(m.group(1)[:3])
         day = int(m.group(2))
         d = date(season_year(month), month, day)
+        if month == 1 and day >= 19:
+            return d, True
         d, shifted = _weekday(d)
         return d, True if m.group(3) or shifted else False
-    m = re.search(
-        r"\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|"
-        r"aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b",
-        low,
-    )
+    if "next week" in low:
+        today = date.today()
+        d = today + timedelta(days=(7 - today.weekday()) % 7 or 7)
+        d, _ = _weekday(d)
+        return d, True
+    early = "early" in low
+    m = re.search(rf"\b({_MONTH})\b", low)
     if m:
         key = m.group(1)
         month = MONTHS.get(key) or MONTHS[key[:3]]
-        day = 1 if (early or "dec" in key) else (5 if month == 1 else 1)
-        if month == 12:
-            day = 1
-        if month == 1 and early:
+        day = 1
+        if early and month == 1:
+            day = 5
+        elif month == 1:
             day = 5
         d = date(season_year(month), month, day)
         d, shifted = _weekday(d)
         return d, True
     return None, True
+
+
+def detect_channels(text: str) -> list[str]:
+    low = (text or "").lower()
+    if re.search(r"sponsored(\s+slot)?", low):
+        return ["other"]
+    no_nl = bool(
+        re.search(r"no newsletter|not (in )?the newsletter|linkedin only|only linkedin", low)
+    )
+    has_nl = bool(re.search(r"newsletter", low))
+    has_li = "linkedin" in low
+    has_x = bool(
+        re.search(r"\btwitter\b|\bx\.com\b|\+\s*x\b|\bx\s*\+|linkedin\s*\+\s*x", low)
+        or re.search(r"(?:^|[\s:/,])x(?:[\s:,]|$)", low)
+    )
+    out: list[str] = []
+    if has_nl and not no_nl:
+        out.append("newsletter")
+    if has_li:
+        out.append("linkedin")
+    if has_x:
+        out.append("other")
+    if no_nl:
+        out = [c for c in out if c != "newsletter"]
+        if not out:
+            out = ["linkedin"]
+    if not out:
+        out = ["newsletter", "linkedin"]
+    seen: list[str] = []
+    for c in out:
+        if c not in seen:
+            seen.append(c)
+    return seen
+
+
+def _extract_date_hits(text: str) -> list[dict]:
+    hits: list[dict] = []
+    seen: set[tuple[int, int]] = set()
+    for m in _DATE_RE.finditer(text or ""):
+        mon_raw = (m.group("mon") or "").lower()
+        month = MONTHS.get(mon_raw) or MONTHS.get(mon_raw[:3])
+        if not month:
+            continue
+        qual = (m.group("qual") or "").lower()
+        day = int(m.group("day")) if m.group("day") else None
+        day2 = int(m.group("day2")) if m.group("day2") else None
+        conference = month == 1 and day is not None and day >= 19
+        if day is None:
+            if month == 1:
+                day = 5 if qual in ("", "early", "mid") else 15
+            elif month == 12:
+                day = 1
+            else:
+                day = 1 if qual in ("", "early") else (15 if qual == "mid" else 20)
+        d = date(season_year(month), month, day)
+        fuzzy = True
+        if conference:
+            fuzzy = True
+        elif day2 or qual in ("early", "mid", "late", "by", "starting"):
+            d, _ = _weekday(d)
+            fuzzy = True
+        else:
+            d, shifted = _weekday(d)
+            fuzzy = shifted
+        key = (d.month, d.day)
+        if key in seen:
+            continue
+        seen.add(key)
+        hits.append(
+            {
+                "date": d,
+                "fuzzy": fuzzy,
+                "conference": conference,
+                "snippet": m.group(0).strip(),
+            }
+        )
+    return hits
+
+
+def _number_dates(hits: list[dict]) -> list[dict]:
+    rest = sorted([h for h in hits if not h["conference"]], key=lambda h: h["date"])
+    conf = [h for h in hits if h["conference"]]
+    out: list[dict] = []
+    for i, h in enumerate(rest):
+        n = (1, 2, 3)[i] if i < 3 else 3
+        out.append({**h, "post_number": n})
+    for h in conf:
+        out.append({**h, "post_number": 4})
+    return out
 
 
 def parse_posting_dates(
@@ -80,56 +176,64 @@ def parse_posting_dates(
 ) -> list[dict]:
     text = (posting_dates_raw or "").strip()
     text = re.split(r"Posting Mon", text, maxsplit=1, flags=re.I)[0]
-    text = re.sub(
-        r"^[\d–\-]+\s*posts?\s*(\([^)]*\))?\s*:?\s*",
-        "",
-        text,
-        flags=re.I,
-    )
-    chunks = [c.strip(" .;") for c in re.split(r"[,;]", text) if c.strip(" .;")]
-    if not chunks:
-        chunks = ["by Nov 20", "early Dec", "early Jan", "Jan 19-22"]
+    channels = detect_channels(text)
+    extra_note = ""
+    recurring = bool(re.search(r"every issue|until registration closes", text, re.I))
+    hits = _extract_date_hits(text)
+    if recurring:
+        extra_note = "каждый выпуск"
+        start = None
+        first = (first_post_date or "").strip()
+        if first:
+            start, _ = _parse_one_date(first)
+        if start is None and hits:
+            start = sorted(hits, key=lambda h: h["date"])[0]["date"]
+        if start is None:
+            start, _ = _parse_one_date("Nov 20")
+        hits = [
+            {"date": start or date(2026, 11, 20), "fuzzy": True, "conference": False, "snippet": first or "start"},
+            {
+                "date": date(2027, 1, 19),
+                "fuzzy": True,
+                "conference": True,
+                "snippet": "Jan 19–22",
+            },
+        ]
+    numbered = _number_dates(hits)
+    first = (first_post_date or "").strip()
+    if first and not recurring:
+        d, _ = _parse_one_date(first)
+        if d:
+            for item in numbered:
+                if item["post_number"] == 1:
+                    item["date"] = d
+                    item["fuzzy"] = True
+                    item["snippet"] = (item.get("snippet") or "") + f"; first_post_date {first}"
     rows: list[dict] = []
-    for i, chunk in enumerate(chunks[:4], start=1):
-        d, fuzzy = _parse_one_date(chunk)
-        if d is None:
-            continue
-        low = chunk.lower()
-        if "linkedin" in low and "newsletter" not in low:
-            channels = ["linkedin"]
-        elif "newsletter" in low and "linkedin" not in low:
-            channels = ["newsletter"]
-        else:
-            channels = ["newsletter", "linkedin"]
+    for item in numbered:
+        note = item.get("snippet") or ""
+        if extra_note and extra_note not in note:
+            note = (note + "; " + extra_note).strip("; ")
         for ch in channels:
             rows.append(
                 {
-                    "date": d,
+                    "date": item["date"],
                     "channel": ch,
-                    "post_number": i,
-                    "needs_check": True if fuzzy or "by " in low or "early" in low else fuzzy,
-                    "notes": chunk,
+                    "post_number": item["post_number"],
+                    "needs_check": True,
+                    "notes": note,
                 }
             )
-    first = (first_post_date or "").strip()
-    if first:
-        d, _ = _parse_one_date(first)
-        if d:
-            for row in rows:
-                if row["post_number"] == 1:
-                    row["date"] = d
-                    row["needs_check"] = True
-                    row["notes"] = (row["notes"] + f"; first_post_date {first}").strip("; ")
     if not rows:
-        d, _ = _parse_one_date("Nov 20")
-        for ch in ("newsletter", "linkedin"):
+        d, _ = _parse_one_date(first or "Nov 20")
+        for ch in channels:
             rows.append(
                 {
                     "date": d or date(2026, 11, 20),
                     "channel": ch,
                     "post_number": 1,
                     "needs_check": True,
-                    "notes": posting_dates_raw or "",
+                    "notes": extra_note or posting_dates_raw or "",
                 }
             )
     return rows

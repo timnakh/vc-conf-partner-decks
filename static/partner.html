@@ -73,6 +73,7 @@
         <option value="1">Post 1</option><option value="2">Post 2</option>
         <option value="3">Post 3</option><option value="4">Post 4</option>
       </select>
+      <input type="text" name="notes" placeholder="заметка" />
       <button type="submit">+ выход</button>
     </form>
   </section>
@@ -105,6 +106,7 @@
           <select data-f="post_number">
             ${[1,2,3,4].map(n => `<option value="${n}" ${pub.post_number===n?"selected":""}>Post ${n}</option>`).join("")}
           </select>
+          <input type="text" data-f="notes" value="${esc(pub.notes)}" placeholder="заметка" style="min-width:160px" />
           <span class="badge">${esc(pub.status)}</span>
           <button type="button" class="ghost save-pub">Сохранить</button>
           <button type="button" class="ghost del-pub">Удалить</button>
