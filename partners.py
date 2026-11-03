@@ -359,12 +359,18 @@ def upsert_partner(
         return partner
 
 
-def import_from_r2() -> dict:
+def ready_for_db(company: str, code: str) -> bool:
+    return bool((company or "").strip() and (code or "").strip())
+
+
+def import_from_r2(skip_keys: list[str] | None = None) -> dict:
+    skip = {k.strip() for k in (skip_keys or []) if k and k.strip()}
     scanned = scan_r2_kits()
     imported = []
     skipped = []
     for row in scanned:
-        if not row["company"]:
+        key = row.get("r2_key") or ""
+        if key in skip or not ready_for_db(row.get("company") or "", row.get("code") or ""):
             skipped.append(row)
             continue
         partner = upsert_partner(
@@ -418,6 +424,15 @@ def update_publication(pid: int, **fields) -> dict:
 def delete_publication(pid: int) -> None:
     with db.connect() as conn:
         conn.execute("DELETE FROM publication WHERE id=%s", (pid,))
+        conn.commit()
+
+
+def delete_partner(pid: int) -> None:
+    with db.connect() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM partner WHERE id=%s RETURNING id", (pid,))
+        if not cur.fetchone():
+            raise ValueError("нет такого партнёра")
         conn.commit()
 
 

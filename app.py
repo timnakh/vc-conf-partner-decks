@@ -171,6 +171,10 @@ class PartnerIn(BaseModel):
     first_post_date: str = ""
 
 
+class ImportR2In(BaseModel):
+    skip: list[str] = []
+
+
 class PubPatch(BaseModel):
     date: Optional[str] = None
     channel: Optional[str] = None
@@ -1000,9 +1004,9 @@ def import_scan():
 
 
 @app.post("/api/import/from-r2")
-def import_from_r2():
+def import_from_r2(body: ImportR2In = ImportR2In()):
     try:
-        return partners.import_from_r2()
+        return partners.import_from_r2(skip_keys=body.skip)
     except Exception as e:
         raise HTTPException(400, str(e)) from e
 
@@ -1017,6 +1021,8 @@ def import_partners():
 
 @app.post("/api/import/partners")
 def import_add_partner(body: PartnerIn):
+    if not partners.ready_for_db(body.company, body.code):
+        raise HTTPException(400, "нужны company и code")
     try:
         return partners.upsert_partner(
             company=body.company,
@@ -1047,6 +1053,15 @@ def import_patch_pub(pub_id: int, body: PubPatch):
 def import_del_pub(pub_id: int):
     try:
         partners.delete_publication(pub_id)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    return {"ok": True}
+
+
+@app.delete("/api/import/partners/{pid}")
+def import_del_partner(pid: int):
+    try:
+        partners.delete_partner(pid)
     except Exception as e:
         raise HTTPException(400, str(e)) from e
     return {"ok": True}

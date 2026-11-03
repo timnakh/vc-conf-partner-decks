@@ -55,7 +55,7 @@
       <table>
         <thead>
           <tr>
-            <th>Компания</th><th>Код</th><th>Ссылка</th><th>Даты</th><th>First post</th><th>Не хватает</th>
+            <th>Компания</th><th>Код</th><th>Ссылка</th><th>Даты</th><th>First post</th><th>Не хватает</th><th></th>
           </tr>
         </thead>
         <tbody id="scan-body"></tbody>
@@ -68,7 +68,7 @@
     <form id="add-form">
       <div class="grid">
         <div><label>Company</label><input name="company" required /></div>
-        <div><label>Code</label><input name="code" /></div>
+        <div><label>Code</label><input name="code" required /></div>
         <div><label>Reg URL</label><input name="reg_url" /></div>
         <div><label>Notion URL</label><input name="notion_page_url" /></div>
       </div>
@@ -92,18 +92,32 @@
     if (!res.ok) throw new Error(data.detail || res.statusText);
     return data;
   }
+  const SKIP_KEY = "mp_import_skip";
+  function skipSet() {
+    try { return new Set(JSON.parse(localStorage.getItem(SKIP_KEY) || "[]")); }
+    catch { return new Set(); }
+  }
+  function saveSkip(set) { localStorage.setItem(SKIP_KEY, JSON.stringify([...set])); }
+  let lastScan = [];
   function cell(v) { return v ? String(v) : "—"; }
   function renderScan(rows) {
+    lastScan = rows || [];
+    const skipped = skipSet();
+    const visible = lastScan.filter(r => !skipped.has(r.r2_key));
     const tb = document.getElementById("scan-body");
-    tb.innerHTML = (rows || []).map(r => `
-      <tr>
+    tb.innerHTML = visible.map(r => {
+      const junk = !(r.company && r.code);
+      return `
+      <tr data-key="${r.r2_key || ""}">
         <td>${cell(r.company)}</td>
         <td>${cell(r.code)}</td>
         <td>${r.reg_url ? `<a href="${r.reg_url}">${r.reg_url}</a>` : "—"}</td>
         <td>${cell(r.posting_dates)}</td>
         <td>${cell(r.first_post_date)}</td>
-        <td class="${(r.missing||[]).length ? "miss" : "ok"}">${(r.missing||[]).join(", ") || "всё есть"}</td>
-      </tr>`).join("") || `<tr><td colspan="6">пусто</td></tr>`;
+        <td class="${junk || (r.missing||[]).length ? "miss" : "ok"}">${junk ? "без company/code, не пишется" : ((r.missing||[]).join(", ") || "всё есть")}</td>
+        <td><button type="button" class="ghost skip-scan">Пропустить</button></td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="7">пусто</td></tr>`;
   }
   async function loadDrafts() {
     const data = await j("/api/import/partners");
@@ -135,6 +149,7 @@
         <div class="row">
           <button type="button" class="save">Сохранить правки</button>
           <button type="button" class="confirm">Подтвердить</button>
+          <button type="button" class="ghost skip-draft">Пропустить / удалить</button>
         </div>
       </div>`).join("");
   }
@@ -153,9 +168,13 @@
     const err = document.getElementById("scan-err");
     err.textContent = ""; st.textContent = "пишу в Neon…";
     try {
-      const data = await j("/api/import/from-r2", { method: "POST" });
+      const data = await j("/api/import/from-r2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skip: [...skipSet()] }),
+      });
       renderScan(data.scanned);
-      st.textContent = `записано ${data.imported.length}, без компании ${data.skipped.length}`;
+      st.textContent = `записано ${data.imported.length}, пропущено ${data.skipped.length}`;
       await loadDrafts();
     } catch (e) { err.textContent = e.message; st.textContent = ""; }
   };
@@ -191,6 +210,20 @@
       await j("/api/import/partners/" + id + "/confirm", { method:"POST" });
       await loadDrafts();
     }
+    if (e.target.classList.contains("skip-draft")) {
+      await j("/api/import/partners/" + id, { method:"DELETE" });
+      await loadDrafts();
+    }
+  });
+  document.getElementById("scan-body").addEventListener("click", (e) => {
+    if (!e.target.classList.contains("skip-scan")) return;
+    const tr = e.target.closest("tr");
+    const key = tr && tr.dataset.key;
+    if (!key) { tr.remove(); return; }
+    const set = skipSet();
+    set.add(key);
+    saveSkip(set);
+    renderScan(lastScan);
   });
   loadDrafts().catch(e => { document.getElementById("drafts").innerHTML = "<p class='err'>"+e.message+"</p>"; });
 </script>
