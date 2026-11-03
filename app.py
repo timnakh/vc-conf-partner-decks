@@ -211,9 +211,16 @@ class PubPatch(BaseModel):
     notes: Optional[str] = None
 
 
+def _html(name: str) -> HTMLResponse:
+    return HTMLResponse(
+        (STATIC / name).read_text(),
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
-    return (STATIC / "index.html").read_text()
+    return _html("index.html")
 
 
 @app.get("/busy")
@@ -1009,18 +1016,18 @@ def batch_pack(job_id: str, body: PackBody):
 
 
 @app.get("/import", response_class=HTMLResponse)
-def import_page() -> str:
-    return (STATIC / "import.html").read_text()
+def import_page() -> HTMLResponse:
+    return _html("import.html")
 
 
 @app.get("/partners", response_class=HTMLResponse)
-def partners_page() -> str:
-    return (STATIC / "partners.html").read_text()
+def partners_page() -> HTMLResponse:
+    return _html("partners.html")
 
 
 @app.get("/partners/{pid}", response_class=HTMLResponse)
-def partner_page(pid: int) -> str:
-    return (STATIC / "partner.html").read_text()
+def partner_page(pid: int) -> HTMLResponse:
+    return _html("partner.html")
 
 
 @app.get("/api/partners")

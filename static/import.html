@@ -19,8 +19,9 @@
     .lead { color:var(--muted); margin:0 0 22px; }
     section { background:#fff; border:1px solid var(--line); border-radius:20px; padding:20px 22px; margin-bottom:16px; }
     h2 { font-size:17px; margin:0 0 12px; }
-    table { width:100%; border-collapse:collapse; font-size:13px; }
-    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #f1e4c8; vertical-align:top; }
+    table { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
+    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #f1e4c8; vertical-align:top; word-break:break-word; }
+    th.act, td.act { width:110px; }
     th { color:var(--muted); font-weight:600; }
     .miss { color:#b91c1c; }
     .ok { color:#166534; }
@@ -55,7 +56,7 @@
       <table>
         <thead>
           <tr>
-            <th>Компания</th><th>Код</th><th>Ссылка</th><th>Даты</th><th>First post</th><th>Не хватает</th><th></th>
+            <th class="act"></th><th>Компания</th><th>Код</th><th>Ссылка</th><th>Даты</th><th>First post</th><th>Не хватает</th>
           </tr>
         </thead>
         <tbody id="scan-body"></tbody>
@@ -100,24 +101,36 @@
   function saveSkip(set) { localStorage.setItem(SKIP_KEY, JSON.stringify([...set])); }
   let lastScan = [];
   function cell(v) { return v ? String(v) : "—"; }
+  function isJunk(r) {
+    const url = (r.reg_url || "").toLowerCase();
+    const company = (r.company || "").trim().toLowerCase();
+    if (!(r.company && r.code)) return true;
+    if (company === "test") return true;
+    if (url.includes("life_journey_rpg")) return true;
+    return false;
+  }
   function renderScan(rows) {
     lastScan = rows || [];
     const skipped = skipSet();
-    const visible = lastScan.filter(r => !skipped.has(r.r2_key));
+    let junkN = 0;
+    lastScan.forEach(r => {
+      if (isJunk(r) && r.r2_key) { skipped.add(r.r2_key); junkN += 1; }
+    });
+    saveSkip(skipped);
+    const visible = lastScan.filter(r => !skipped.has(r.r2_key) && !isJunk(r));
     const tb = document.getElementById("scan-body");
-    tb.innerHTML = visible.map(r => {
-      const junk = !(r.company && r.code);
-      return `
+    const st = document.getElementById("scan-status");
+    if (st) st.textContent = visible.length + " в таблице · скрыто " + (lastScan.length - visible.length);
+    tb.innerHTML = visible.map(r => `
       <tr data-key="${r.r2_key || ""}">
+        <td class="act"><button type="button" class="ghost skip-scan">Пропустить</button></td>
         <td>${cell(r.company)}</td>
         <td>${cell(r.code)}</td>
         <td>${r.reg_url ? `<a href="${r.reg_url}">${r.reg_url}</a>` : "—"}</td>
         <td>${cell(r.posting_dates)}</td>
         <td>${cell(r.first_post_date)}</td>
-        <td class="${junk || (r.missing||[]).length ? "miss" : "ok"}">${junk ? "без company/code, не пишется" : ((r.missing||[]).join(", ") || "всё есть")}</td>
-        <td><button type="button" class="ghost skip-scan">Пропустить</button></td>
-      </tr>`;
-    }).join("") || `<tr><td colspan="7">пусто</td></tr>`;
+        <td class="${(r.missing||[]).length ? "miss" : "ok"}">${(r.missing||[]).join(", ") || "всё есть"}</td>
+      </tr>`).join("") || `<tr><td colspan="7">пусто</td></tr>`;
   }
   async function loadDrafts() {
     const data = await j("/api/import/partners");
@@ -160,7 +173,6 @@
     try {
       const data = await j("/api/import/scan");
       renderScan(data.scanned);
-      st.textContent = data.scanned.length + " китов (уникальные компании)";
     } catch (e) { err.textContent = e.message; st.textContent = ""; }
   };
   document.getElementById("btn-import").onclick = async () => {
@@ -174,7 +186,7 @@
         body: JSON.stringify({ skip: [...skipSet()] }),
       });
       renderScan(data.scanned);
-      st.textContent = `записано ${data.imported.length}, пропущено ${data.skipped.length}`;
+      st.textContent = `записано ${data.imported.length}, пропущено ${data.skipped.length} · скрыто в таблице ${lastScan.length - document.querySelectorAll("#scan-body tr[data-key]").length}`;
       await loadDrafts();
     } catch (e) { err.textContent = e.message; st.textContent = ""; }
   };
