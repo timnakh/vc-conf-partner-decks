@@ -53,6 +53,11 @@ CREATE TABLE IF NOT EXISTS publication_change (
 );
 CREATE INDEX IF NOT EXISTS publication_change_pub_idx ON publication_change (publication_id);
 CREATE INDEX IF NOT EXISTS publication_change_partner_idx ON publication_change (partner_id);
+
+CREATE TABLE IF NOT EXISTS digest_log (
+  sent_on DATE PRIMARY KEY,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 """
 
 _POOL = None

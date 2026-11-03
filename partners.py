@@ -549,6 +549,118 @@ def unconfirmed() -> list[dict]:
         return [{**_partner_row(cur, i), "publications": _pubs(cur, i)} for i in ids]
 
 
+def mark_missed(today: date | None = None) -> int:
+    today = today or date.today()
+    cutoff = today - timedelta(days=2)
+    with db.connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE publication SET status='missed', updated_at=NOW() "
+            "WHERE date <= %s AND status NOT IN ('published', 'missed')",
+            (cutoff,),
+        )
+        n = cur.rowcount
+        conn.commit()
+        return n
+
+
+CHANNEL_LABELS = {
+    "newsletter": "newsletter",
+    "linkedin": "LinkedIn",
+    "other": "other",
+}
+
+
+def reminder_text(pub: dict, partner: dict) -> str:
+    n = int(pub.get("post_number") or 1)
+    label = POST_LABELS.get(n, str(n))
+    channel = CHANNEL_LABELS.get(pub.get("channel") or "", pub.get("channel") or "post")
+    kit = (partner.get("notion_page_url") or "").strip()
+    kit_line = f"Your kit: {kit}\n" if kit else ""
+    return (
+        f"Hi — a reminder that {pub.get('date')} is your {channel} slot "
+        f"(Post {n}: {label}) for Virtual VC Conf 2027.\n\n"
+        f"Promo code: {partner.get('code') or '—'}\n"
+        f"Registration link: {partner.get('reg_url') or '—'}\n"
+        f"{kit_line}"
+        "Please post and send me the live URL when it's up. Thank you!"
+    )
+
+
+def calendar_bundle() -> dict:
+    mark_missed()
+    with db.connect() as conn:
+        cur = conn.cursor()
+        rows = cur.execute(
+            "SELECT pu.id, pu.date, pu.channel, pu.post_number, pu.status, pu.needs_check, "
+            "pu.url, pu.notes, pu.reminded_at, pu.published_at, "
+            "p.id, p.company, p.code, p.reg_url, p.notion_page_url, p.confirmed "
+            "FROM publication pu JOIN partner p ON p.id = pu.partner_id "
+            "ORDER BY pu.date, lower(p.company), pu.post_number"
+        ).fetchall()
+    events = []
+    by_partner: dict[int, dict] = {}
+    today = date.today()
+    buckets = {
+        "today": [],
+        "remind": [],
+        "overdue": [],
+        "no_url": [],
+        "needs_check": [],
+        "missed": [],
+    }
+    for r in rows:
+        ev = {
+            "id": r[0],
+            "date": r[1].isoformat(),
+            "channel": r[2],
+            "post_number": r[3],
+            "post_label": POST_LABELS.get(r[3], str(r[3])),
+            "status": r[4],
+            "needs_check": r[5],
+            "url": r[6] or "",
+            "notes": r[7] or "",
+            "reminded_at": r[8].isoformat() if r[8] else "",
+            "published_at": r[9].isoformat() if r[9] else "",
+            "partner_id": r[10],
+            "company": r[11],
+            "code": r[12] or "",
+            "reg_url": r[13] or "",
+            "notion_page_url": r[14] or "",
+            "confirmed": bool(r[15]),
+            "title": f"{r[11]} · {r[2]} · Post {r[3]}",
+        }
+        events.append(ev)
+        pack = by_partner.setdefault(
+            r[10],
+            {"id": r[10], "company": r[11], "confirmed": bool(r[15]), "pubs": []},
+        )
+        pack["pubs"].append(
+            {"id": ev["id"], "date": ev["date"], "channel": ev["channel"],
+             "post_number": ev["post_number"], "status": ev["status"]}
+        )
+        d = r[1]
+        st = r[4]
+        if st == "missed":
+            buckets["missed"].append(ev)
+        if d == today:
+            buckets["today"].append(ev)
+        if today < d <= today + timedelta(days=3) and st not in ("published", "missed"):
+            buckets["remind"].append(ev)
+        if d < today and st != "published":
+            buckets["overdue"].append(ev)
+        if st == "published" and not (r[6] or "").strip():
+            buckets["no_url"].append(ev)
+        if r[5]:
+            buckets["needs_check"].append(ev)
+    return {
+        "today": today.isoformat(),
+        "events": events,
+        "today_panel": buckets,
+        "timeline": sorted(by_partner.values(), key=lambda x: x["company"].lower()),
+    }
+
+
 def update_publication(pid: int, **fields) -> dict:
     allowed = {"date", "channel", "post_number", "status", "needs_check", "url", "notes"}
     with db.connect() as conn:
@@ -569,6 +681,18 @@ def update_publication(pid: int, **fields) -> dict:
             "url": old[6],
             "notes": old[7],
         }
+        extra: dict = {}
+        if "date" in fields and fields["date"] and fields["date"] != current["date"]:
+            extra.setdefault("status", "rescheduled")
+            old_d = current["date"].isoformat() if hasattr(current["date"], "isoformat") else str(current["date"])
+            note = f"перенос с {old_d}"
+            notes = fields["notes"] if "notes" in fields else (current["notes"] or "")
+            if note not in (notes or ""):
+                extra["notes"] = (note + (". " + notes if notes else "")).strip()
+        url_val = fields.get("url", None)
+        if url_val is not None and str(url_val).strip() and current["status"] != "published":
+            extra.setdefault("status", "published")
+        fields = {**extra, **fields}
         sets = []
         vals = []
         for k, v in fields.items():
@@ -582,6 +706,11 @@ def update_publication(pid: int, **fields) -> dict:
                 before = before.isoformat() if hasattr(before, "isoformat") else str(before)
                 after = after.isoformat() if hasattr(after, "isoformat") else str(after)
             _log_change(cur, old[0], pid, k, before, after)
+        status = fields.get("status")
+        if status == "reminded":
+            sets.append("reminded_at=NOW()")
+        if status == "published":
+            sets.append("published_at=NOW()")
         if not sets:
             raise ValueError("нечего менять")
         sets.append("updated_at=NOW()")
@@ -593,6 +722,39 @@ def update_publication(pid: int, **fields) -> dict:
         row = cur.fetchone()
         conn.commit()
         return {"ok": True, "partner_id": row[0]}
+
+
+def get_publication(pid: int) -> dict:
+    with db.connect() as conn:
+        cur = conn.cursor()
+        row = cur.execute(
+            "SELECT pu.id, pu.date, pu.channel, pu.post_number, pu.status, pu.needs_check, "
+            "pu.url, pu.notes, p.id, p.company, p.code, p.reg_url, p.notion_page_url, p.confirmed "
+            "FROM publication pu JOIN partner p ON p.id = pu.partner_id WHERE pu.id=%s",
+            (pid,),
+        ).fetchone()
+        if not row:
+            raise ValueError("нет такого выхода")
+        pub = {
+            "id": row[0],
+            "date": row[1].isoformat(),
+            "channel": row[2],
+            "post_number": row[3],
+            "post_label": POST_LABELS.get(row[3], str(row[3])),
+            "status": row[4],
+            "needs_check": row[5],
+            "url": row[6] or "",
+            "notes": row[7] or "",
+        }
+        partner = {
+            "id": row[8],
+            "company": row[9],
+            "code": row[10] or "",
+            "reg_url": row[11] or "",
+            "notion_page_url": row[12] or "",
+            "confirmed": bool(row[13]),
+        }
+        return {"publication": pub, "partner": partner, "text": reminder_text(pub, partner)}
 
 
 def delete_publication(pid: int) -> None:

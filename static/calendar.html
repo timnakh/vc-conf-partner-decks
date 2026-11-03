@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Календарь MP</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+  <style>
+    :root { --ink:#0B1220; --muted:#475569; --line:#f1e4c8; --orange:#F9A72B; }
+    * { box-sizing: border-box; }
+    body { margin:0; font: 15px/1.45 Inter, ui-sans-serif, system-ui, sans-serif; color:var(--ink);
+      background: linear-gradient(180deg, #fff4d6 0%, #fffaf3 28%, #f4f7ff 100%); min-height:100vh; }
+    main { max-width: 1280px; margin: 24px auto; padding: 0 16px 64px; }
+    a { color:#1f60e0; }
+    h1 { font-size:28px; letter-spacing:-.03em; margin:0 0 6px; }
+    h2 { font-size:15px; margin:0 0 10px; }
+    .hint { color:var(--muted); font-size:13px; }
+    .lead { color:var(--muted); margin:0 0 16px; }
+    .layout { display:grid; grid-template-columns: 280px minmax(0,1fr); gap:14px; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    section, .panel { background:#fff; border:1px solid var(--line); border-radius:18px; padding:16px 18px; }
+    .panel h3 { margin:14px 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+    .panel h3:first-child { margin-top:0; }
+    .item { font-size:13px; padding:6px 0; border-bottom:1px solid #f7edd4; }
+    .item a { font-weight:600; color:var(--ink); text-decoration:none; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0 12px; }
+    button { background:var(--ink); color:#fff; border:0; border-radius:10px; padding:8px 14px; font:600 13px Inter, sans-serif; cursor:pointer; }
+    button.ghost { background:#fff; color:var(--ink); border:1px solid #ead9b3; }
+    button:disabled { opacity:.5; }
+    input, select, textarea { font:inherit; padding:8px 10px; border:1px solid #ead9b3; border-radius:10px; background:#fffef9; }
+    label { font-size:12px; color:var(--muted); display:block; margin:8px 0 4px; }
+    .err { color:#b91c1c; font-size:13px; }
+    .ok { color:#166534; font-size:13px; }
+    .fc { background:#fff; }
+    .fc-event.draft { opacity:.55; box-shadow: inset 0 0 0 2px #eab308; }
+    .fc-event { cursor:pointer; }
+    .dot { display:inline-block; width:10px; height:10px; border-radius:99px; margin-right:4px; }
+    .tl { overflow-x:auto; }
+    .tl table { border-collapse:collapse; font-size:12px; min-width:720px; width:100%; }
+    .tl th, .tl td { border:1px solid #f1e4c8; padding:6px; vertical-align:top; }
+    .tl .draft-row { background:#fffbeb; opacity:.75; }
+    .chip { display:inline-block; margin:2px 2px 0 0; padding:2px 6px; border-radius:8px; color:#fff; font-size:11px; }
+    .chip.draft { outline:2px solid #eab308; opacity:.7; }
+    aside.drawer {
+      position:fixed; top:0; right:0; width:min(420px,100%); height:100vh; background:#fff;
+      border-left:1px solid var(--line); box-shadow:-12px 0 40px rgba(11,18,32,.12);
+      padding:20px; overflow:auto; z-index:20; display:none;
+    }
+    aside.drawer.on { display:block; }
+    .scrim { position:fixed; inset:0; background:rgba(11,18,32,.25); z-index:19; display:none; }
+    .scrim.on { display:block; }
+    textarea.copy { width:100%; min-height:140px; font:12px/1.4 ui-monospace, Menlo, monospace; }
+  </style>
+</head>
+<body>
+<main>
+  <p class="hint"><a href="/">календарь</a> · <a href="/kits">киты</a> · <a href="/import">импорт</a> · <a href="/partners">партнёры</a></p>
+  <h1>Календарь медиапартнёров</h1>
+  <p class="lead">Черновики — жёлтая рамка и полупрозрачные. Подтверждённые — обычным цветом.</p>
+  <div class="row">
+    <button type="button" class="ghost" data-view="dayGridMonth">Месяц</button>
+    <button type="button" class="ghost" data-view="dayGridWeek">Неделя</button>
+    <button type="button" class="ghost" id="btn-tl">По партнёрам</button>
+    <label style="display:flex;gap:6px;align-items:center;margin:0;color:var(--ink);font-size:14px;">
+      <input type="checkbox" id="show-drafts" checked /> показывать черновики
+    </label>
+    <input id="q" type="search" placeholder="партнёр" style="max-width:180px" />
+    <select id="f-status">
+      <option value="">все статусы</option>
+      <option>planned</option><option>reminded</option><option>published</option>
+      <option>missed</option><option>rescheduled</option>
+    </select>
+    <select id="f-channel">
+      <option value="">все каналы</option>
+      <option>newsletter</option><option>linkedin</option><option>other</option>
+    </select>
+    <button type="button" id="btn-digest">Отправить дайджест сейчас</button>
+  </div>
+  <div id="msg" class="hint"></div>
+  <div class="layout">
+    <div class="panel" id="today"></div>
+    <div>
+      <section id="cal-wrap"><div id="cal"></div></section>
+      <section class="tl" id="tl" style="display:none;margin-top:12px"></section>
+      <section style="margin-top:12px">
+        <h2>+ выход</h2>
+        <div class="row">
+          <select id="new-partner"></select>
+          <input id="new-date" type="date" />
+          <select id="new-ch"><option>newsletter</option><option>linkedin</option><option>other</option></select>
+          <select id="new-n"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+          <button type="button" id="btn-add">Добавить</button>
+          <a href="/partners">+ партнёр</a>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer"></aside>
+<script>
+const COLORS = { planned:"#64748b", reminded:"#2563eb", published:"#16a34a", missed:"#dc2626", rescheduled:"#d97706" };
+let DATA = { events:[], today_panel:{}, timeline:[], telegram:false };
+let calendar;
+
+async function j(url, opts) {
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+  if (!res.ok) {
+    const html = /<!doctype html/i.test(text) || /bad gateway/i.test(text);
+    throw new Error(html ? ("Render " + res.status) : (data.detail || text.slice(0,200) || res.statusText));
+  }
+  return data;
+}
+function esc(v) {
+  return String(v ?? "").replace(/[&<>"]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s]));
+}
+function filtered() {
+  const drafts = document.getElementById("show-drafts").checked;
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  const st = document.getElementById("f-status").value;
+  const ch = document.getElementById("f-channel").value;
+  return DATA.events.filter(e => {
+    if (!drafts && !e.confirmed) return false;
+    if (q && !e.company.toLowerCase().includes(q) && !(e.code||"").toLowerCase().includes(q)) return false;
+    if (st && e.status !== st) return false;
+    if (ch && e.channel !== ch) return false;
+    return true;
+  });
+}
+function toFc(e) {
+  return {
+    id: String(e.id),
+    title: e.title,
+    start: e.date,
+    allDay: true,
+    backgroundColor: COLORS[e.status] || "#64748b",
+    borderColor: e.confirmed ? (COLORS[e.status] || "#64748b") : "#eab308",
+    classNames: e.confirmed ? [] : ["draft"],
+    extendedProps: e,
+  };
+}
+function renderToday() {
+  const p = DATA.today_panel || {};
+  const drafts = document.getElementById("show-drafts").checked;
+  const keep = ev => drafts || ev.confirmed;
+  const block = (title, rows) => {
+    const list = (rows||[]).filter(keep);
+    if (!list.length) return `<h3>${title}</h3><div class="hint">пусто</div>`;
+    return `<h3>${title}</h3>` + list.map(e =>
+      `<div class="item"><a href="#" data-open="${e.id}">${esc(e.company)}</a> · ${esc(e.channel)} · Post ${e.post_number}<div class="hint">${e.date}${e.confirmed?"":" · черновик"}</div></div>`
+    ).join("");
+  };
+  document.getElementById("today").innerHTML =
+    `<h2>Сегодня</h2>${block("Выходят сегодня", p.today)}${block("Напомнить (3 дня)", p.remind)}${block("Просрочено", p.overdue)}${block("Missed", p.missed)}${block("Без ссылки", p.no_url)}${block("Проверить", p.needs_check)}`;
+}
+function renderTl() {
+  const drafts = document.getElementById("show-drafts").checked;
+  const months = [["2026-11","Ноя"],["2026-12","Дек"],["2027-01","Янв"]];
+  const rows = (DATA.timeline||[]).filter(p => drafts || p.confirmed);
+  const cells = p => months.map(([ym]) => {
+    const pubs = (p.pubs||[]).filter(x => x.date.startsWith(ym));
+    if (!pubs.length) return "<td></td>";
+    return "<td>" + pubs.map(x =>
+      `<span class="chip ${p.confirmed?"":"draft"}" style="background:${COLORS[x.status]||"#64748b"}">${x.date.slice(8)} ${x.channel[0]} P${x.post_number}</span>`
+    ).join("") + "</td>";
+  }).join("");
+  document.getElementById("tl").innerHTML =
+    `<h2>Ноябрь–январь по партнёрам</h2><table><thead><tr><th>Партнёр</th>${months.map(m=>"<th>"+m[1]+"</th>").join("")}</tr></thead><tbody>` +
+    rows.map(p => `<tr class="${p.confirmed?"":"draft-row"}"><td><a href="/partners/${p.id}">${esc(p.company)}</a>${p.confirmed?"":" · черновик"}</td>${cells(p)}</tr>`).join("") +
+    "</tbody></table>";
+}
+function refreshCal() {
+  if (!calendar) return;
+  calendar.removeAllEvents();
+  calendar.addEventSource(filtered().map(toFc));
+  renderToday();
+  renderTl();
+}
+function openDrawer(id) {
+  const e = DATA.events.find(x => String(x.id) === String(id));
+  if (!e) return;
+  document.getElementById("scrim").classList.add("on");
+  const d = document.getElementById("drawer");
+  d.classList.add("on");
+  d.innerHTML = `
+    <p class="hint"><a href="/partners/${e.partner_id}">карточка партнёра</a></p>
+    <h2>${esc(e.company)} ${e.confirmed?"":"<span class='hint'>черновик</span>"}</h2>
+    <label>Дата</label><input id="d-date" type="date" value="${e.date}" />
+    <label>Канал</label><select id="d-ch">${["newsletter","linkedin","other"].map(c=>`<option ${c===e.channel?"selected":""}>${c}</option>`).join("")}</select>
+    <label>Post</label><select id="d-n">${[1,2,3,4].map(n=>`<option ${n===e.post_number?"selected":""}>${n}</option>`).join("")}</select>
+    <label>Статус</label><select id="d-st">${["planned","reminded","published","missed","rescheduled"].map(s=>`<option ${s===e.status?"selected":""}>${s}</option>`).join("")}</select>
+    <label>Ссылка на выход</label><input id="d-url" type="url" value="${esc(e.url)}" />
+    <label>Заметки</label><textarea id="d-notes">${esc(e.notes)}</textarea>
+    <p class="hint">код ${esc(e.code||"—")} · <a href="${esc(e.reg_url)}" target="_blank">reg</a>${e.notion_page_url?` · <a href="${esc(e.notion_page_url)}" target="_blank">kit</a>`:""}</p>
+    <div class="row">
+      <button type="button" id="d-save">Сохранить</button>
+      <button type="button" class="ghost" id="d-remind">Напоминание партнёру</button>
+    </div>
+    <div id="d-msg"></div>
+    <textarea class="copy" id="d-copy" hidden></textarea>
+  `;
+  d.querySelector("#d-save").onclick = async () => {
+    const payload = {
+      date: d.querySelector("#d-date").value,
+      channel: d.querySelector("#d-ch").value,
+      post_number: Number(d.querySelector("#d-n").value),
+      status: d.querySelector("#d-st").value,
+      url: d.querySelector("#d-url").value,
+      notes: d.querySelector("#d-notes").value,
+    };
+    try {
+      await j("/api/publications/" + e.id, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+      await load();
+      openDrawer(e.id);
+      d.querySelector("#d-msg").innerHTML = "<p class='ok'>сохранено</p>";
+    } catch (err) { d.querySelector("#d-msg").innerHTML = "<p class='err'>"+esc(err.message)+"</p>"; }
+  };
+  d.querySelector("#d-remind").onclick = async () => {
+    try {
+      const data = await j("/api/publications/" + e.id + "/reminder");
+      const box = d.querySelector("#d-copy");
+      box.hidden = false;
+      box.value = data.text;
+      box.select();
+      await navigator.clipboard.writeText(data.text);
+      await j("/api/publications/" + e.id, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ status:"reminded" }) });
+      await load();
+      d.querySelector("#d-msg").innerHTML = "<p class='ok'>скопировано, статус reminded</p>";
+    } catch (err) { d.querySelector("#d-msg").innerHTML = "<p class='err'>"+esc(err.message)+"</p>"; }
+  };
+}
+function closeDrawer() {
+  document.getElementById("scrim").classList.remove("on");
+  document.getElementById("drawer").classList.remove("on");
+}
+async function load() {
+  DATA = await j("/api/calendar");
+  const sel = document.getElementById("new-partner");
+  const seen = new Map();
+  DATA.events.forEach(e => seen.set(e.partner_id, e.company));
+  (DATA.timeline||[]).forEach(p => seen.set(p.id, p.company));
+  try {
+    const plist = await j("/api/partners");
+    (plist.partners || []).forEach(p => seen.set(p.id, p.company));
+  } catch {}
+  sel.innerHTML = [...seen.entries()].sort((a,b)=>a[1].localeCompare(b[1])).map(([id,n]) => `<option value="${id}">${esc(n)}</option>`).join("");
+  if (!calendar) {
+    calendar = new FullCalendar.Calendar(document.getElementById("cal"), {
+      initialView: "dayGridMonth",
+      height: 720,
+      locale: "ru",
+      headerToolbar: { left: "prev,next today", center: "title", right: "" },
+      editable: true,
+      eventStartEditable: true,
+      eventDurationEditable: false,
+      events: [],
+      eventClick: info => openDrawer(info.event.id),
+      eventDrop: async info => {
+        try {
+          await j("/api/publications/" + info.event.id, {
+            method:"PATCH", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ date: info.event.startStr.slice(0,10), status:"rescheduled" }),
+          });
+          await load();
+        } catch (err) {
+          info.revert();
+          document.getElementById("msg").innerHTML = "<span class='err'>"+esc(err.message)+"</span>";
+        }
+      },
+    });
+    calendar.render();
+  }
+  const tick = DATA.digest || {};
+  const msg = document.getElementById("msg");
+  msg.textContent = DATA.telegram
+    ? (tick.sent ? "дайджест ушёл в Telegram" : (tick.reason || tick.error || ""))
+    : "Telegram env не задан — кнопка отправит ошибку.";
+  refreshCal();
+}
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
+  document.getElementById("tl").style.display = "none";
+  document.getElementById("cal-wrap").style.display = "block";
+  calendar.changeView(b.dataset.view);
+});
+document.getElementById("btn-tl").onclick = () => {
+  document.getElementById("cal-wrap").style.display = "none";
+  document.getElementById("tl").style.display = "block";
+  renderTl();
+};
+["show-drafts","q","f-status","f-channel"].forEach(id => {
+  document.getElementById(id).addEventListener("input", refreshCal);
+  document.getElementById(id).addEventListener("change", refreshCal);
+});
+document.getElementById("today").addEventListener("click", e => {
+  const a = e.target.closest("[data-open]");
+  if (!a) return;
+  e.preventDefault();
+  openDrawer(a.dataset.open);
+});
+document.getElementById("scrim").onclick = closeDrawer;
+document.getElementById("btn-digest").onclick = async () => {
+  try {
+    const r = await j("/api/digest", { method:"POST" });
+    document.getElementById("msg").innerHTML = r.sent
+      ? "<span class='ok'>отправили" + (r.empty ? " (пусто)" : "") + "</span>"
+      : "<span class='err'>" + esc(r.reason || r.error || "не ушло") + "</span>";
+  } catch (err) {
+    document.getElementById("msg").innerHTML = "<span class='err'>"+esc(err.message)+"</span>";
+  }
+};
+document.getElementById("btn-add").onclick = async () => {
+  const pid = document.getElementById("new-partner").value;
+  const body = {
+    date: document.getElementById("new-date").value,
+    channel: document.getElementById("new-ch").value,
+    post_number: Number(document.getElementById("new-n").value),
+  };
+  if (!pid || !body.date) return;
+  try {
+    await j("/api/partners/" + pid + "/publications", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+    await load();
+  } catch (err) {
+    document.getElementById("msg").innerHTML = "<span class='err'>"+esc(err.message)+"</span>";
+  }
+};
+load().catch(err => { document.getElementById("msg").innerHTML = "<span class='err'>"+esc(err.message)+"</span>"; });
+</script>
+</body>
+</html>

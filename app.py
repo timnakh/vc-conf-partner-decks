@@ -39,6 +39,7 @@ import materials
 import notion as notionmod
 import db
 import partners
+import digest
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
@@ -209,6 +210,7 @@ class PubPatch(BaseModel):
     needs_check: Optional[bool] = None
     url: Optional[str] = None
     notes: Optional[str] = None
+    status: Optional[str] = None
 
 
 def _html(name: str) -> HTMLResponse:
@@ -219,7 +221,17 @@ def _html(name: str) -> HTMLResponse:
 
 
 @app.get("/", response_class=HTMLResponse)
-def index() -> str:
+def index() -> HTMLResponse:
+    return _html("calendar.html")
+
+
+@app.get("/calendar", response_class=HTMLResponse)
+def calendar_page() -> HTMLResponse:
+    return _html("calendar.html")
+
+
+@app.get("/kits", response_class=HTMLResponse)
+def kits_page() -> HTMLResponse:
     return _html("index.html")
 
 
@@ -1013,6 +1025,38 @@ def batch_pack(job_id: str, body: PackBody):
         headers={"Content-Disposition": _disposition(name)},
         background=BackgroundTask(dest.unlink, missing_ok=True),
     )
+
+
+@app.get("/api/calendar")
+def api_calendar():
+    try:
+        data = partners.calendar_bundle()
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    data["telegram"] = digest.configured()
+    def _tick():
+        try:
+            digest.maybe_send(bundle=data)
+        except Exception:
+            pass
+    threading.Thread(target=_tick, daemon=True).start()
+    return data
+
+
+@app.post("/api/digest")
+def api_digest():
+    try:
+        return digest.maybe_send(force=True)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.get("/api/publications/{pub_id}/reminder")
+def api_reminder(pub_id: int):
+    try:
+        return partners.get_publication(pub_id)
+    except Exception as e:
+        raise HTTPException(404, str(e)) from e
 
 
 @app.get("/import", response_class=HTMLResponse)
