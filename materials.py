@@ -17,6 +17,22 @@ def page_title(company: str) -> str:
     return f"{company} × Virtual VC Conf 2027"
 
 
+def as_confirmed(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in ("1", "true", "yes", "y", "on", "confirmed", "да")
+
+
+def welcome_line(company: str, confirmed: bool) -> str:
+    partner = (company or "").strip() or "partner"
+    if confirmed:
+        return f"Great to have {partner} on board as a media partner!"
+    return (
+        f"Here's how a {partner} × Virtual VC Conf partnership would look, "
+        "with everything ready to use."
+    )
+
+
 def _ctx(
     *,
     company: str,
@@ -28,6 +44,7 @@ def _ctx(
     first_name: str = "",
     posting_dates: str = "",
     first_post_date: str = "",
+    confirmed: bool = True,
     **_extra,
 ) -> dict:
     partner = (company or "").strip() or "partner"
@@ -36,6 +53,7 @@ def _ctx(
     short = _short_link(link)
     dates = (posting_dates or "").strip() or DEFAULT_DATES
     post1_list, post1_when = _post1_labels(first_post_date)
+    ok = as_confirmed(confirmed if confirmed is not None else _extra.get("confirmed", True))
     return {
         "partner": partner,
         "link": link,
@@ -50,6 +68,8 @@ def _ctx(
         "poster_square_url": poster_square_url or "",
         "poster_banner_url": poster_banner_url or "",
         "first_name": (first_name or "").strip(),
+        "confirmed": ok,
+        "welcome": welcome_line(partner, ok),
     }
 
 
@@ -97,7 +117,7 @@ def copies(c: dict) -> list[dict]:
                 f"{p} is partnering with Virtual VC Conf: three days online with 1,000+ VCs, angels, family offices, LPs and startups.\n\n"
                 "- **Attend for free** and watch Day 1 panels with top VCs.\n"
                 "- **Get a pass with 1:1 pitch calls** if you want to pitch matched investors on Day 2.\n"
-                "- **Investors get a free 3-day pass** for taking 15 founder pitches on Day 2.\n\n"
+                "- **Investors get a free 3-day pass** for committing to 15 founder pitches on Day 2.\n\n"
                 "Day 1: VC panels + 25+ breakout rooms. Day 2: 1:1 pitch calls. Day 3: family office & LP insights.\n\n"
                 f"With code **{code}**, you get 10% off any pass.\n\n"
                 f"Register free at {link}"
@@ -108,7 +128,7 @@ def copies(c: dict) -> list[dict]:
                 "→ Day 1: VC panels + 25+ breakout rooms led by 100+ VCs & angels. Free livestream\n"
                 "→ Day 2: 8-min 1:1 pitch calls with matched investors\n"
                 "→ Day 3: family office & LP insights + 10+ rooms led by 30+ FOs & LPs\n\n"
-                f"Investors: free 3-day pass for taking 15 founder pitches. Code {code} gives 10% off any pass.\n\n"
+                f"Investors: free 3-day pass for committing to 15 founder pitches. Code {code} gives 10% off any pass.\n\n"
                 f"Register free: {li}"
             ),
             "note": "Attach the square poster.",
@@ -166,7 +186,7 @@ def copies(c: dict) -> list[dict]:
                 "The full program is live. 8 AM PT / 11 AM ET, 100% online.\n\n"
                 "- **Attend for free** and watch Day 1 panels with top VCs.\n"
                 "- **Get a pass with 1:1 pitch calls** to pitch matched investors on Day 2.\n"
-                "- **Investors get a free 3-day pass** for taking 15 founder pitches on Day 2.\n\n"
+                "- **Investors get a free 3-day pass** for committing to 15 founder pitches on Day 2.\n\n"
                 f"With code **{code}**, you get 10% off any pass.\n\n"
                 f"Register free at {link}"
             ),
@@ -211,7 +231,7 @@ def markdown(
     lines = [
         f"# {page_title(p)}",
         "",
-        f"Great to have {p} on board as a media partner!",
+        c["welcome"],
         "",
         f"**Your link:** {link}",
         "",
@@ -378,7 +398,7 @@ def html_page(
 <body>
 <main>
   <h1>{esc(page_title(c["partner"]))}</h1>
-  <p>Great to have {p} on board as a media partner!</p>
+  <p>{esc(c["welcome"])}</p>
   <p><strong>Your link:</strong> <a href="{link}">{link}</a></p>
   <p><strong>Your code:</strong> <code>{code}</code></p>
   <p><strong>Planned posting dates:</strong> {esc(c["dates"])}</p>
@@ -513,7 +533,7 @@ def notion_children(
 
     p = c["partner"]
     kids = [
-        para(rt(f"Great to have {p} on board as a media partner!")),
+        para(rt(c["welcome"])),
         para(rt("Your link: ", bold=True), rt(c["link"])),
         para(rt("Your code: ", bold=True), rt(c["code"])),
         para(rt("Planned posting dates: ", bold=True), rt(c["dates"])),

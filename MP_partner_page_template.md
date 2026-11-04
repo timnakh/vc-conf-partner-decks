@@ -1,6 +1,6 @@
 # {{company}} × Virtual VC Conf 2027
 
-Great to have {{company}} on board as a media partner!
+{{welcome}}
 
 **Your link:** {{reg_url}}
 
@@ -42,7 +42,7 @@ Click an image → ⋯ → Download
 
 - **Attend for free** and watch Day 1 panels with top VCs.
 - **Get a pass with 1:1 pitch calls** if you want to pitch matched investors on Day 2.
-- **Investors get a free 3-day pass** for taking 15 founder pitches on Day 2.
+- **Investors get a free 3-day pass** for committing to 15 founder pitches on Day 2.
 
 Day 1: VC panels + 25+ breakout rooms. Day 2: 1:1 pitch calls. Day 3: family office & LP insights.
 
@@ -63,7 +63,7 @@ Jan 27–29, 100% online. Meet 1,000+ VCs, angels, family offices, LPs & startup
 → Day 2: 8-min 1:1 pitch calls with matched investors
 → Day 3: family office & LP insights + 10+ rooms led by 30+ FOs & LPs
 
-Investors: free 3-day pass for taking 15 founder pitches. Code {{code}} gives 10% off any pass.
+Investors: free 3-day pass for committing to 15 founder pitches. Code {{code}} gives 10% off any pass.
 
 Register free: {{reg_url}}
 ```
@@ -157,7 +157,7 @@ The full program is live. 8 AM PT / 11 AM ET, 100% online.
 
 - **Attend for free** and watch Day 1 panels with top VCs.
 - **Get a pass with 1:1 pitch calls** to pitch matched investors on Day 2.
-- **Investors get a free 3-day pass** for taking 15 founder pitches on Day 2.
+- **Investors get a free 3-day pass** for committing to 15 founder pitches on Day 2.
 
 With code **{{code}}**, you get 10% off any pass.
 

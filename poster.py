@@ -251,6 +251,7 @@ def fill_poster(
     first_name: str = "",
     posting_dates: str = "",
     first_post_date: str = "",
+    confirmed: bool = True,
 ) -> dict:
     name = display_name(company) or (company or "").strip()
     if not name:
@@ -273,6 +274,7 @@ def fill_poster(
         "first_name": (first_name or "").strip(),
         "posting_dates": (posting_dates or "").strip(),
         "first_post_date": (first_post_date or "").strip(),
+        "confirmed": bool(confirmed),
         "kind": "media-partner",
     }
     return {
@@ -343,6 +345,11 @@ def fill_posters_from_csv(
             or lower.get("post1_date")
             or ""
         )
+        if "confirmed" in lower:
+            from materials import as_confirmed as _kit_ok
+            confirmed = _kit_ok(lower.get("confirmed"))
+        else:
+            confirmed = True
         photo_val = lower.get("logo") or lower.get("photo") or lower.get("image") or ""
         photo = _photo_from_row(photo_val, None, logos_map) if photo_val else None
         if photo is None:
@@ -361,6 +368,7 @@ def fill_posters_from_csv(
                 first_name=first_name,
                 posting_dates=posting_dates,
                 first_post_date=first_post_date,
+                confirmed=confirmed,
             )
         except Exception as e:
             failed.append({"name": company, "url": link, "reason": str(e), "row": original})

@@ -527,6 +527,7 @@ def poster_materials(fill_id: str, update_partner: bool = False):
     first_name = meta.get("first_name") or ""
     posting_dates = meta.get("posting_dates") or ""
     first_post_date = meta.get("first_post_date") or ""
+    kit_ok = bool(meta.get("confirmed")) if "confirmed" in meta else True
     if not store.configured():
         md = materials.markdown(
             company=company,
@@ -538,6 +539,7 @@ def poster_materials(fill_id: str, update_partner: bool = False):
             first_name=first_name,
             posting_dates=posting_dates,
             first_post_date=first_post_date,
+            confirmed=kit_ok,
         )
         return JSONResponse(
             {
@@ -590,6 +592,7 @@ def poster_materials(fill_id: str, update_partner: bool = False):
             first_name=first_name,
             posting_dates=posting_dates,
             first_post_date=first_post_date,
+            confirmed=kit_ok,
         )
         html_name = f"{company} — materials.html"
         html_url = store.put_file(
@@ -608,6 +611,7 @@ def poster_materials(fill_id: str, update_partner: bool = False):
             first_name=first_name,
             posting_dates=posting_dates,
             first_post_date=first_post_date,
+            confirmed=kit_ok,
         )
         notion_url = ""
         notion_error = ""
@@ -623,6 +627,7 @@ def poster_materials(fill_id: str, update_partner: bool = False):
                     first_name=first_name,
                     posting_dates=posting_dates,
                     first_post_date=first_post_date,
+                    confirmed=kit_ok,
                 )
             except Exception as e:
                 notion_error = str(e)
@@ -686,6 +691,7 @@ async def poster_fill(
     first_name: str = Form(""),
     posting_dates: str = Form(""),
     first_post_date: str = Form(""),
+    confirmed: str = Form(""),
     url: str = Form(""),
     promo: str = Form(""),
     website: str = Form(""),
@@ -718,6 +724,7 @@ async def poster_fill(
             first_name=first_name,
             posting_dates=posting_dates,
             first_post_date=first_post_date,
+            confirmed=materials.as_confirmed(confirmed),
         )
         _busy_progress(1, 1)
     except Exception as e:
@@ -974,6 +981,7 @@ def batch_share(job_id: str, body: PackBody):
                         first_name=meta.get("first_name") or "",
                         posting_dates=meta.get("posting_dates") or "",
                         first_post_date=meta.get("first_post_date") or "",
+                        confirmed=bool(meta.get("confirmed")) if "confirmed" in meta else True,
                     )
                     html_name = f"{company} — materials.html"
                     extra["materials_url"] = store.put_file(
@@ -994,6 +1002,7 @@ def batch_share(job_id: str, body: PackBody):
                         first_name=meta.get("first_name") or "",
                         posting_dates=meta.get("posting_dates") or "",
                         first_post_date=meta.get("first_post_date") or "",
+                        confirmed=bool(meta.get("confirmed")) if "confirmed" in meta else True,
                     )
                 if extra:
                     extras[int(item["row_index"])] = extra

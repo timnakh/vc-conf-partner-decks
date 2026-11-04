@@ -43,6 +43,7 @@ def create_mp_page(
     first_name: str = "",
     posting_dates: str = "",
     first_post_date: str = "",
+    confirmed: bool = True,
 ) -> str:
     if not configured():
         raise RuntimeError(MISSING)
@@ -65,6 +66,7 @@ def create_mp_page(
             first_name=first_name,
             posting_dates=posting_dates,
             first_post_date=first_post_date,
+            confirmed=confirmed,
         ),
     }
     cover = poster_banner_url or poster_url
