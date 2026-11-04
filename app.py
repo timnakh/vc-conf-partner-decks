@@ -48,9 +48,26 @@ app = FastAPI(title="Презентации для партнёров")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
+ADMIN_PATHS = (
+    "/calendar",
+    "/import",
+    "/partners",
+    "/api/calendar",
+    "/api/digest",
+    "/api/partners",
+    "/api/publications",
+    "/api/import",
+    "/api/db",
+)
+
+
+def _admin_path(path: str) -> bool:
+    return any(path == p or path.startswith(p + "/") for p in ADMIN_PATHS)
+
+
 @app.middleware("http")
 async def admin_basic_auth(request: Request, call_next):
-    if request.url.path in ("/health", "/telegram/webhook", "/cron/digest"):
+    if not _admin_path(request.url.path):
         return await call_next(request)
     password = os.environ.get("ADMIN_PASSWORD", "").strip()
     if not password:
@@ -222,7 +239,7 @@ def _html(name: str) -> HTMLResponse:
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
-    return _html("calendar.html")
+    return _html("index.html")
 
 
 @app.get("/calendar", response_class=HTMLResponse)
