@@ -8,13 +8,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/site.css" />
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
   <style>
     :root { --ink:#0B1220; --muted:#475569; --line:#f1e4c8; --orange:#F9A72B; }
     * { box-sizing: border-box; }
     body { margin:0; font: 15px/1.45 Inter, ui-sans-serif, system-ui, sans-serif; color:var(--ink);
       background: linear-gradient(180deg, #fff4d6 0%, #fffaf3 28%, #f4f7ff 100%); min-height:100vh; }
-    main { max-width: 1280px; margin: 24px auto; padding: 0 16px 64px; }
+    main { max-width: 1280px; margin: 20px auto; padding: 0 16px 64px; }
     a { color:#1f60e0; }
     h1 { font-size:28px; letter-spacing:-.03em; margin:0 0 6px; }
     h2 { font-size:15px; margin:0 0 10px; }
@@ -62,9 +63,8 @@
 </head>
 <body>
 <main>
-  <p class="hint"><a href="/calendar">календарь</a> · <a href="/">киты</a> · <a href="/import">импорт</a> · <a href="/partners">партнёры</a></p>
   <h1>Календарь медиапартнёров</h1>
-  <p class="lead">Цвет плашки — партнёр. Статус: ✓ вышел, ⏰ напомнили, ⚠ просрочено. Черновик — жёлтый пунктир.</p>
+  <p class="lead">Цвет плашки — партнёр. ✓ вышел, ⏰ напомнили, ⚠ просрочено. Черновик — жёлтый пунктир.</p>
   <div class="row">
     <button type="button" class="ghost" data-view="dayGridMonth">Месяц</button>
     <button type="button" class="ghost" data-view="dayGridWeek">Неделя</button>
@@ -345,7 +345,7 @@ async function load() {
   const msg = document.getElementById("msg");
   msg.textContent = DATA.telegram
     ? (tick.sent ? "дайджест ушёл в Telegram" : (tick.reason || tick.error || ""))
-    : "Telegram env не задан — кнопка отправит ошибку.";
+    : "Telegram не подключён.";
   refreshCal();
 }
 document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
@@ -396,5 +396,6 @@ document.getElementById("btn-add").onclick = async () => {
 };
 load().catch(err => { document.getElementById("msg").innerHTML = "<span class='err'>"+esc(err.message)+"</span>"; });
 </script>
+<script src="/static/nav.js"></script>
 </body>
 </html>

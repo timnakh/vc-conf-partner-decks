@@ -1,0 +1,52 @@
+.site-bar {
+  position: sticky; top: 0; z-index: 40;
+  background: rgba(255, 250, 243, .94);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #f1e4c8;
+  padding: 12px 20px 10px;
+}
+.site-bar .inner {
+  max-width: 1100px; margin: 0 auto;
+  display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center;
+}
+.site-bar a { color: #0B1220; text-decoration: none; font-weight: 600; font-size: 14px; }
+.site-bar a:hover { color: #c2410c; }
+.site-bar a.on { color: #c2410c; }
+.site-bar .brand { font-size: 15px; letter-spacing: -.02em; margin-right: 8px; }
+.site-bar .lock { display: inline-flex; align-items: center; gap: 5px; }
+.site-bar .lock i {
+  font-style: normal; font-size: 12px; line-height: 1;
+  border: 1px solid #ead9b3; border-radius: 999px; padding: 2px 6px; color: #92400e; background: #fff7ed;
+}
+.site-sub {
+  display: none; width: 100%; gap: 16px; padding: 6px 0 2px;
+  border-top: 1px solid #f7edd4; margin-top: 4px;
+}
+.site-bar.mp .site-sub { display: flex; flex-wrap: wrap; }
+.site-sub a { font-size: 13px; color: #475569; font-weight: 600; }
+.site-sub a.on { color: #c2410c; }
+
+.home-hero { max-width: 920px; margin: 48px auto 0; padding: 0 20px; }
+.home-hero h1 { font-size: 36px; letter-spacing: -.03em; margin: 0 0 8px; }
+.home-hero .lead { color: #475569; margin: 0 0 28px; }
+.home-grid {
+  max-width: 920px; margin: 0 auto 80px; padding: 0 20px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+.home-card {
+  display: block; text-decoration: none; color: inherit;
+  background: #fff; border: 1px solid #f1e4c8; border-radius: 24px;
+  padding: 24px 22px; min-height: 180px;
+  box-shadow: 0 10px 30px rgba(11,18,32,.04);
+}
+.home-card:hover { border-color: #e8c98a; transform: translateY(-1px); }
+.home-card h2 { font-size: 20px; margin: 0 0 10px; letter-spacing: -.02em; display: flex; gap: 8px; align-items: center; }
+.home-card p { margin: 0; color: #475569; font-size: 14px; line-height: 1.45; }
+.home-card .tag {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: #92400e; background: #fff7ed; border: 1px solid #ead9b3; border-radius: 999px; padding: 3px 8px;
+}
+@media (max-width: 800px) {
+  .home-grid { grid-template-columns: 1fr; }
+  .home-hero h1 { font-size: 28px; }
+}

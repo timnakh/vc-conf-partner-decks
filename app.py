@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.background import BackgroundTask
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -239,17 +239,27 @@ def _html(name: str) -> HTMLResponse:
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
+    return _html("home.html")
+
+
+@app.get("/decks", response_class=HTMLResponse)
+def decks_page() -> HTMLResponse:
     return _html("index.html")
+
+
+@app.get("/materials", response_class=HTMLResponse)
+def materials_page() -> HTMLResponse:
+    return _html("index.html")
+
+
+@app.get("/kits")
+def kits_page():
+    return RedirectResponse("/materials", status_code=302)
 
 
 @app.get("/calendar", response_class=HTMLResponse)
 def calendar_page() -> HTMLResponse:
     return _html("calendar.html")
-
-
-@app.get("/kits", response_class=HTMLResponse)
-def kits_page() -> HTMLResponse:
-    return _html("index.html")
 
 
 @app.get("/busy")

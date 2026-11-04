@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Презентации для партнёров</title>
+  <title>VC Conf 2027</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/static/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/site.css" />
   <style>
     :root { --ink:#0B1220; --muted:#475569; --line:#f1e4c8; --orange:#F9A72A; --bg:#fff7ed; }
     * { box-sizing: border-box; }
@@ -19,8 +20,7 @@
       background: linear-gradient(180deg, #fff4d6 0%, #fffaf3 28%, #f4f7ff 100%);
       min-height: 100vh;
     }
-    main { max-width: 920px; margin: 48px auto; padding: 0 20px 64px; }
-    .eyebrow { color:var(--orange); font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin:0 0 10px; }
+    main { max-width: 920px; margin: 28px auto; padding: 0 20px 64px; }
     h1 { font-size: 36px; letter-spacing:-.03em; margin: 0 0 8px; }
     p.lead { color:var(--muted); margin: 0 0 28px; max-width: 640px; }
     section {
@@ -91,14 +91,6 @@
     }
     .queue.on { display:block; }
     body.queued .work { opacity:.55; pointer-events:none; }
-    .tabs { display:flex; gap:8px; margin: 0 0 22px; flex-wrap:wrap; }
-    .tab {
-      margin-top:0; background:#fff; color:var(--ink); border:1px solid #ead9b3;
-      border-radius:999px; padding:8px 16px; font: 600 14px Inter, sans-serif;
-    }
-    .tab:hover { background:#fff7ed; }
-    .tab.on { background:var(--ink); color:#fff; border-color:var(--ink); }
-    .tab.on:hover { background:#1a2744; }
     .pane { display:none; }
     .pane.on { display:block; }
     .pane-posters .card { flex: 0 0 46%; }
@@ -118,17 +110,9 @@
 <body>
   <main>
     <div class="queue" id="queue-banner"></div>
-    <p class="eyebrow">Virtual VC Conf 2027 · <a href="/calendar">календарь</a> · <a href="/partners">партнёры</a> · <a href="/import">импорт</a></p>
-    <div class="tabs">
-      <a class="tab" href="/calendar" style="text-decoration:none;">Календарь</a>
-      <button type="button" class="tab on" id="tab-decks">Презентации</button>
-      <button type="button" class="tab" id="tab-posters">Постеры</button>
-      <a class="tab" href="/partners" style="text-decoration:none;">Партнёры</a>
-      <a class="tab" href="/import" style="text-decoration:none;">Импорт MP</a>
-    </div>
     <div class="pane on" id="pane-decks">
-    <h1>Презентации для партнёров</h1>
-    <p class="lead">Собери персональный PDF: выбери шаблон, напиши имя. Для компании — сайт или логотип, для человека — фото.</p>
+    <h1>Презентации</h1>
+    <p class="lead">Собери персональный PDF: выбери шаблон и имя. Для компании — сайт или логотип, для человека — фото.</p>
 
     <section>
       <h2>Шаблон</h2>
@@ -137,14 +121,14 @@
           <label for="template">Какую презентацию отправить</label>
           <select id="template" name="template"></select>
         </div>
-        <p class="note">Медиапартнёр, журналист, спикер, хост брейкаута, инвестор на 1:1 и другие роли.</p>
+          <p class="note">Роль партнёра: медиапартнёр, журналист, спикер и другие.</p>
       </div>
       <div class="row">
         <div>
           <label for="name-pattern">Имя файла</label>
           <input id="name-pattern" name="filename_pattern" type="text" value="VC Conf 2027 — {name}.pdf" />
         </div>
-        <p class="note"><code>{name}</code> — компания или человек. <code>{template}</code> — роль, например медиапартнёр. Так и уйдёт партнёру.</p>
+          <p class="note"><code>{name}</code> подставится само — компания или человек.</p>
       </div>
     </section>
 
@@ -156,21 +140,21 @@
             <label for="name">Имя или компания</label>
             <input id="name" name="name" type="text" required placeholder="Acme Ventures или Jane Doe" />
           </div>
-          <p class="note">Так напишем на слайде. У компаний сами уберём LLC, Ltd, Inc и текст в скобках.</p>
+            <p class="note">Это имя на первом слайде.</p>
         </div>
         <div class="row">
           <div>
             <label for="url">Сайт компании</label>
             <input id="url" name="url" type="url" placeholder="https://acme.com" />
           </div>
-          <p class="note">Попробуем скачать иконку сайта. Часто прилетает не логотип или чужая картинка — проверь блок на превью. Надёжнее загрузить файл ниже.</p>
+            <p class="note">Попробуем взять иконку с сайта. Если на превью не то — загрузи файл ниже.</p>
         </div>
         <div class="row">
           <div>
             <label for="photo">Логотип или фото</label>
             <input id="photo" name="photo" type="file" accept="image/*" />
           </div>
-          <p class="note">Так надёжнее. Фото человека — только файлом. Логотип — если не хочешь рисковать автозагрузкой с сайта.</p>
+            <p class="note">Фото человека — только файлом. Логотип тоже лучше файлом.</p>
         </div>
         <button type="submit">Показать превью</button>
         <div class="progress" id="one-progress">
@@ -201,15 +185,15 @@
             <label for="csv">Таблица CSV</label>
             <input id="csv" name="csv_file" type="file" accept=".csv,text/csv" required />
           </div>
-          <p class="note">Колонка с названием: <code>name</code> или <code>company</code>. Сайт (<code>url</code>) необязателен.</p>
+          <p class="note">Колонка с названием: <code>name</code> или <code>company</code>. Сайт — необязательно.</p>
         </div>
-        <div class="zip-skip">С сайта логотип часто качается криво или вообще чужой. Перед отправкой проверь блок на первом слайде — это на вашей ответственности. Надёжнее zip: файлы как компания в таблице, например <code>Angels Santé.png</code>.</div>
+        <div class="zip-skip">Перед отправкой проверь превью. Надёжнее приложить zip с логотипами: имя файла = компания, например <code>Angels Santé.png</code>.</div>
         <div class="row" id="zip-row">
           <div>
             <label for="zip">Архив с логотипами</label>
             <input id="zip" name="photos_zip" type="file" accept=".zip,application/zip" />
           </div>
-          <p class="note" id="zip-note">Имя файла = название компании. Колонку <code>photo</code> можно не делать.</p>
+          <p class="note" id="zip-note">Имя файла = название компании.</p>
         </div>
         <button type="submit">Собрать превью</button>
         <div class="progress" id="batch-progress">
@@ -219,7 +203,7 @@
         <div class="err" id="batch-err"></div>
         <div class="ok" id="batch-ok"></div>
         <div class="preview-box" id="batch-gallery">
-          <p class="carousel-hint" id="gal-hint">Прокрути вбок колёсиком или трекпадом. Галочка — не брать: не попадёт в zip и без ссылки в CSV.</p>
+          <p class="carousel-hint" id="gal-hint">Прокрути вбок. Галочка — не включать в zip.</p>
           <div class="carousel" id="gal-track"></div>
           <div class="actions">
             <button type="button" id="batch-download">Скачать выбранные PDF</button>
@@ -230,8 +214,8 @@
     </section>
     </div>
     <div class="pane pane-posters" id="pane-posters">
-    <h1>Постеры для партнёров</h1>
-    <p class="lead">Январь 2027: вертикаль 1080×1350 в рассылку и квадрат 1080×1080 в LinkedIn. Промокод только в текстах, не на постере.</p>
+    <h1>Постеры и материалы</h1>
+    <p class="lead">Вертикальный постер в рассылку и квадрат в LinkedIn. Промокод только в текстах, не на картинке.</p>
 
     <section>
       <h2>Шаблон</h2>
@@ -242,14 +226,14 @@
             <option value="media-partner">Медиапартнёр</option>
           </select>
         </div>
-          <p class="note">Оба формата собираются сразу. Промокод и даты уходят в страницу для партнёра.</p>
+          <p class="note">Сразу оба формата. Промокод и даты попадут на страницу с материалами.</p>
       </div>
       <div class="row">
         <div>
           <label for="p-name-pattern">Имя файла</label>
           <input id="p-name-pattern" type="text" value="VC Conf poster — {name}.png" />
         </div>
-        <p class="note"><code>{name}</code> — компания. На постере для МП только она, без имени человека.</p>
+          <p class="note"><code>{name}</code> — компания. На постере только она.</p>
       </div>
     </section>
 
@@ -261,56 +245,56 @@
             <label for="p-company">Компания</label>
             <input id="p-company" name="company" type="text" required placeholder="Founders Bay" />
           </div>
-          <p class="note">Так напишем рядом с логотипом. LLC / Ltd / Inc и скобки уберём сами.</p>
+            <p class="note">Это имя рядом с логотипом.</p>
         </div>
         <div class="row">
           <div>
             <label for="p-first">Имя контакта</label>
             <input id="p-first" name="first_name" type="text" placeholder="Scott" />
           </div>
-          <p class="note">Для кита: «Hi Scott, welcome on board». Пусто — просто Hi.</p>
+            <p class="note">Для приветствия в материалах. Можно оставить пустым.</p>
         </div>
         <div class="row">
           <div>
             <label for="p-url">Ссылка регистрации</label>
             <input id="p-url" name="url" type="text" placeholder="https://vcconf.com/?15" value="https://vcconf.com/?15" />
           </div>
-          <p class="note">Это уже трекинг партнёра: <code>https://vcconf.com?120</code>. Ничего не дописываем.</p>
+            <p class="note">Ссылка партнёра, как есть — ничего не дописываем.</p>
         </div>
         <div class="row">
           <div>
             <label for="p-promo">Промокод</label>
             <input id="p-promo" name="promo" type="text" placeholder="FOUNDERSBAY10" />
           </div>
-          <p class="note">Только в текстах кита, на постер не ставим.</p>
+            <p class="note">Попадёт в тексты, на постер не ставим.</p>
         </div>
         <div class="row">
           <div>
             <label for="p-dates">Planned posting dates</label>
             <textarea id="p-dates" name="posting_dates" class="dates" rows="3">3–4 posts (newsletter + LinkedIn): by Nov 20, early Dec, early Jan, Jan 19–22. Posting Mon–Fri 9–11 am EST</textarea>
           </div>
-          <p class="note">Свободная английская строка, как договорились с партнёром. Примеры: <code>Newsletter mention by Nov 20, LinkedIn post early Jan</code> или <code>Post 1 by Nov 20, post 2 Jan 19–22 (dates proposed, not yet confirmed)</code>. Пусто — первый вариант по умолчанию.</p>
+            <p class="note">Даты выходов, как договорились с партнёром. Пусто — стандартный график.</p>
         </div>
         <div class="row">
           <div>
             <label for="p-first-post">First post date</label>
             <input id="p-first-post" name="first_post_date" type="text" placeholder="Nov 2–6" />
           </div>
-          <p class="note">Необяз. Одно поле на список и на When в Post 1. Пример <code>Nov 2–6</code> → «first post (ideally Nov 2–6)» и «ideally Nov 2–6, at the latest by Nov 20». Пусто — везде «by Nov 20».</p>
+            <p class="note">Необязательно. Например <code>Nov 2–6</code>.</p>
         </div>
         <div class="row">
           <div>
             <label for="p-website">Сайт компании</label>
             <input id="p-website" name="website" type="url" placeholder="https://foundersbay.com" />
           </div>
-          <p class="note">Только чтобы скачать логотип. Надёжнее файл ниже.</p>
+            <p class="note">Нужен, чтобы подтянуть логотип. Надёжнее файл ниже.</p>
         </div>
         <div class="row">
           <div>
             <label for="p-logo">Логотип</label>
             <input id="p-logo" name="logo" type="file" accept="image/*" />
           </div>
-          <p class="note">Круг слева. Лучше квадратная иконка (аватар компании в LinkedIn), не логотип с надписью — широкий wordmark внутри круга мелкий. Без файла и без сайта — белый круг.</p>
+            <p class="note">Лучше квадратная иконка, как аватар в LinkedIn.</p>
         </div>
         <button type="submit">Показать превью</button>
         <div class="progress" id="p-one-progress">
@@ -329,22 +313,20 @@
           <div class="actions">
             <button type="button" id="p-one-download">Скачать PNG</button>
             <button type="button" class="ghost" id="p-one-share">Сделать ссылку</button>
-            <button type="button" class="ghost" id="p-notion">Подготовить страницу с материалами МП</button>
+            <button type="button" class="ghost" id="p-notion">Собрать материалы</button>
           </div>
           <div class="link-out" id="p-one-link-box">
             <label for="p-one-link">Ссылка на PNG</label>
             <input id="p-one-link" type="text" readonly />
           </div>
           <div class="link-out" id="p-notion-box">
-            <label for="p-notion-link">Notion</label>
-            <input id="p-notion-link" type="text" readonly placeholder="появится, если в Render есть NOTION_TOKEN" />
             <label for="p-html-link">Страница с материалами</label>
             <input id="p-html-link" type="text" readonly />
-            <label for="p-md">Markdown — вставь в пустую страницу Notion</label>
-            <textarea class="md" id="p-md" readonly></textarea>
-            <button type="button" class="ghost" id="p-md-copy">Скопировать markdown</button>
+            <input id="p-notion-link" type="hidden" />
+            <textarea class="md" id="p-md" hidden></textarea>
+            <button type="button" class="ghost" id="p-md-copy">Скопировать тексты</button>
           </div>
-          <p class="note" id="p-notion-note">Страница партнёра: даты, 4 текста, баннер + два постера, промокод в копи.</p>
+          <p class="note" id="p-notion-note">Ссылка на страницу с датами, текстами и постерами.</p>
         </div>
       </form>
     </section>
@@ -357,15 +339,15 @@
             <label for="p-csv">Таблица CSV</label>
             <input id="p-csv" name="csv_file" type="file" accept=".csv,text/csv" required />
           </div>
-          <p class="note">Колонки: <code>company</code>, <code>url</code>, <code>promo</code>, <code>posting_dates</code> (необяз.), <code>first_post_date</code> (необяз., напр. <code>Nov 2–6</code>), <code>website</code>. Пример: <a href="/static/sample-poster.csv">sample-poster.csv</a>.</p>
+          <p class="note">Колонки: <code>company</code>, <code>url</code>, <code>promo</code>. Пример: <a href="/static/sample-poster.csv">sample-poster.csv</a>.</p>
         </div>
-        <div class="zip-skip">Логотип с сайта часто кривой. Zip надёжнее: имя файла = компания, например <code>Founders Bay.png</code>.</div>
+        <div class="zip-skip">Надёжнее zip с логотипами: имя файла = компания, например <code>Founders Bay.png</code>.</div>
         <div class="row">
           <div>
             <label for="p-zip">Архив с логотипами</label>
             <input id="p-zip" name="photos_zip" type="file" accept=".zip,application/zip" />
           </div>
-          <p class="note">Имя файла = компания. Колонку <code>logo</code> можно не делать.</p>
+          <p class="note">Имя файла = компания.</p>
         </div>
         <button type="submit">Собрать превью</button>
         <div class="progress" id="p-batch-progress">
@@ -375,7 +357,7 @@
         <div class="err" id="p-batch-err"></div>
         <div class="ok" id="p-batch-ok"></div>
         <div class="preview-box" id="p-batch-gallery">
-          <p class="carousel-hint" id="p-gal-hint">Прокрути вбок. Галочка — не брать в zip и без ссылки в CSV.</p>
+          <p class="carousel-hint" id="p-gal-hint">Прокрути вбок. Галочка — не включать в zip.</p>
           <div class="carousel" id="p-gal-track"></div>
           <div class="actions">
             <button type="button" id="p-batch-download">Скачать выбранные PNG (оба формата)</button>
@@ -386,7 +368,12 @@
     </section>
     </div>
   </main>
+  <script src="/static/nav.js"></script>
   <script>
+    const isMaterials = location.pathname.replace(/\/$/, "") === "/materials" || location.pathname.replace(/\/$/, "") === "/kits";
+    document.getElementById("pane-decks").classList.toggle("on", !isMaterials);
+    document.getElementById("pane-posters").classList.toggle("on", isMaterials);
+    document.title = isMaterials ? "Постеры и материалы" : "Презентации";
     const templateSelect = document.getElementById("template");
     let queueToken = sessionStorage.getItem("queueToken") || "";
 
@@ -541,8 +528,7 @@
       const n = gallery.length;
       const drop = skipped().length;
       document.getElementById("gal-hint").textContent =
-        `Прокрути вбок. Берём: ${n - drop} из ${n}.` +
-        (drop ? ` Отмеченные (${drop}) — без PDF и с пустой ссылкой в CSV.` : " Галочка — не брать в zip и оставить ссылку пустой.");
+        `Берём ${n - drop} из ${n}.` + (drop ? ` Отмеченные (${drop}) не войдут в zip.` : " Галочка — не включать.");
     }
 
     document.getElementById("gal-track").addEventListener("wheel", (e) => {
@@ -713,7 +699,7 @@
                 updateHint();
               });
               pick.appendChild(box);
-              pick.append("Не брать — в CSV");
+              pick.append("Не включать");
               const img = document.createElement("img");
               img.src = "/batch/" + job_id + "/preview/" + item.index;
               img.alt = item.name;
@@ -735,19 +721,6 @@
       } finally {
         btn.disabled = false;
       }
-    });
-
-    document.getElementById("tab-decks").addEventListener("click", () => {
-      document.getElementById("tab-decks").classList.add("on");
-      document.getElementById("tab-posters").classList.remove("on");
-      document.getElementById("pane-decks").classList.add("on");
-      document.getElementById("pane-posters").classList.remove("on");
-    });
-    document.getElementById("tab-posters").addEventListener("click", () => {
-      document.getElementById("tab-posters").classList.add("on");
-      document.getElementById("tab-decks").classList.remove("on");
-      document.getElementById("pane-posters").classList.add("on");
-      document.getElementById("pane-decks").classList.remove("on");
     });
 
     let posterOneId = "";
@@ -779,26 +752,12 @@
         document.getElementById("p-html-link").value = data.html_url || "";
         document.getElementById("p-md").value = data.markdown || "";
         box.classList.add("on");
-        const best = data.notion_url || data.html_url || data.markdown || "";
-        if (data.notion_url) {
-          document.getElementById("p-notion-link").select();
-          note.textContent = "Страница в Notion готова.";
-        } else if (data.html_url) {
+        const best = data.html_url || data.markdown || "";
+        if (data.html_url) {
           document.getElementById("p-html-link").select();
-          note.textContent = (data.notion_error || data.hint || "") +
-            " Пока: ссылка на HTML или вставь markdown в Notion.";
+          note.textContent = "Страница с материалами готова.";
         } else {
-          note.textContent = data.hint || "Скопируй markdown в Notion.";
-        }
-        if (data.partner_conflict && data.partner_id) {
-          const upd = confirm("Партнёр уже в БД. Обновить карточку полями из кита? Выходы не пересоберутся.");
-          if (upd) {
-            const res2 = await fetch("/poster/" + posterOneId + "/materials?update_partner=true", { method: "POST" });
-            if (res2.ok) note.textContent += " Карточка обновлена.";
-          }
-          note.innerHTML += ` <a href="/partners/${data.partner_id}">открыть карточку</a>`;
-        } else if (data.partner_id) {
-          note.innerHTML += ` <a href="/partners/${data.partner_id}">карточка в БД</a>`;
+          note.textContent = "Не получилось собрать страницу. Можно скопировать тексты кнопкой ниже.";
         }
         try { await navigator.clipboard.writeText(best); } catch (e) { /* select enough */ }
       } catch (ex) {
@@ -877,7 +836,7 @@
         document.getElementById("p-one-preview-sq").src = data.preview_square || data.preview;
         document.getElementById("p-one-preview-bn").src = data.preview_banner || data.preview;
         const bits = [];
-        if (data.track_url) bits.push("UTM: " + data.track_url);
+        if (data.track_url) bits.push("ссылка: " + data.track_url);
         if (data.promo) bits.push("код " + data.promo);
         document.getElementById("p-one-track").textContent = bits.join(" · ");
         preview.classList.add("on");
@@ -898,8 +857,7 @@
       const n = posterGallery.length;
       const drop = posterSkipped().length;
       document.getElementById("p-gal-hint").textContent =
-        `Прокрути вбок. Берём: ${n - drop} из ${n}.` +
-        (drop ? ` Отмеченные (${drop}) — без PNG и с пустой ссылкой в CSV.` : " Галочка — не брать в zip.");
+        `Берём ${n - drop} из ${n}.` + (drop ? ` Отмеченные (${drop}) не войдут в zip.` : " Галочка — не включать.");
     }
     document.getElementById("p-gal-track").addEventListener("wheel", (e) => {
       const track = e.currentTarget;
@@ -971,7 +929,7 @@
               return;
             }
             downloadBlob(await dl.blob(), filenameFrom(dl, "poster-links.csv"));
-            ok.textContent = "CSV скачан: pdf_url (PNG), track_url, materials_url (страница с 4 постами), markdown.";
+            ok.textContent = "CSV со ссылками скачан.";
             bar.style.width = "100%";
             label.textContent = "Готово";
             return;
@@ -1056,7 +1014,7 @@
                 updatePosterHint();
               });
               pick.appendChild(box);
-              pick.append("Не брать — в CSV");
+              pick.append("Не включать");
               const img = document.createElement("img");
               img.src = "/batch/" + job_id + "/preview/" + item.index;
               img.alt = item.name;

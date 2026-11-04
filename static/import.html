@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/site.css" />
   <style>
     :root { --ink:#0B1220; --muted:#475569; --line:#f1e4c8; --orange:#F9A72A; }
     * { box-sizing: border-box; }
@@ -40,15 +41,14 @@
 </head>
 <body>
 <main>
-  <p class="hint"><a href="/calendar">календарь</a> · <a href="/">киты</a> · <a href="/partners">партнёры</a></p>
-  <h1>Проверка импорта медиапартнёров</h1>
-  <p class="lead">Киты из R2 <code>vc-conf-2027/poster-mp/</code>. Черновики уже видны в календаре (жёлтые). «Подтвердить» убирает рамку черновика.</p>
+  <h1>Импорт медиапартнёров</h1>
+  <p class="lead">Подтянуть киты, поправить даты и подтвердить партнёра.</p>
 
   <section>
-    <h2>Что лежит в R2</h2>
+    <h2>Киты</h2>
     <div class="row">
-      <button type="button" id="btn-scan">Сканировать R2</button>
-      <button type="button" class="ghost" id="btn-import">Записать в БД как черновики</button>
+      <button type="button" id="btn-scan">Найти киты</button>
+      <button type="button" class="ghost" id="btn-import">Записать черновики</button>
       <span id="scan-status" class="hint"></span>
     </div>
     <div id="scan-err" class="err"></div>
@@ -71,7 +71,7 @@
         <div><label>Company</label><input name="company" required /></div>
         <div><label>Code</label><input name="code" required /></div>
         <div><label>Reg URL</label><input name="reg_url" /></div>
-        <div><label>Notion URL</label><input name="notion_page_url" /></div>
+        <div><label>Ссылка на кит</label><input name="notion_page_url" /></div>
       </div>
       <p><label>Posting dates (текст)</label>
         <textarea name="posting_dates_raw" rows="2" placeholder="by Nov 20, early Dec, early Jan, Jan 19–22"></textarea></p>
@@ -93,7 +93,7 @@
     if (!res.ok) {
       const html = /<!doctype html/i.test(text) || /bad gateway/i.test(text);
       throw new Error(html
-        ? ("Render " + res.status + ": скан не успел (слишком много файлов в R2). Обнови и сканируй ещё раз.")
+        ? ("Скан не успел, обнови страницу и найди киты ещё раз.")
         : (data.detail || text.slice(0, 240) || res.statusText));
     }
     return data;
@@ -199,7 +199,7 @@
   document.getElementById("btn-import").onclick = async () => {
     const st = document.getElementById("scan-status");
     const err = document.getElementById("scan-err");
-    err.textContent = ""; st.textContent = "пишу в Neon…";
+    err.textContent = ""; st.textContent = "записываю…";
     try {
       const data = await j("/api/import/from-r2", {
         method: "POST",
@@ -283,5 +283,6 @@
   });
   loadDrafts().catch(e => { document.getElementById("drafts").innerHTML = "<p class='err'>"+e.message+"</p>"; });
 </script>
+<script src="/static/nav.js"></script>
 </body>
 </html>

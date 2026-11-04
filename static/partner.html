@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/site.css" />
   <style>
     :root { --ink:#0B1220; --muted:#475569; --line:#f1e4c8; }
     * { box-sizing: border-box; }
@@ -36,7 +37,6 @@
 </head>
 <body>
 <main>
-  <p class="hint"><a href="/calendar">календарь</a> · <a href="/partners">все партнёры</a> · <a href="/import">импорт</a></p>
   <h1 id="title">Партнёр</h1>
   <p class="hint" id="status"></p>
   <div id="err" class="err"></div>
@@ -47,7 +47,7 @@
         <div><label>Company</label><input name="company" required /></div>
         <div><label>Code</label><input name="code" required /></div>
         <div><label>Reg URL</label><input name="reg_url" /></div>
-        <div><label>Notion URL</label><input name="notion_page_url" /></div>
+        <div><label>Ссылка на кит</label><input name="notion_page_url" /></div>
       </div>
       <p><label>Posting dates (текст)</label><textarea name="posting_dates_raw" rows="3"></textarea></p>
       <p><label>First post (необяз.)</label><input name="first_post_date" /></p>
@@ -56,7 +56,7 @@
         <button type="submit">Сохранить карточку</button>
         <button type="button" class="ghost" id="btn-preview">Пересобрать выходы из текста</button>
       </div>
-      <p class="hint">Сохранение текста дат не трогает выходы. Пересборка — только после превью.</p>
+      <p class="hint">Сохранение карточки не меняет выходы. Пересборка — отдельной кнопкой.</p>
       <div id="save-ok" class="ok"></div>
     </form>
     <div id="preview"></div>
@@ -173,5 +173,6 @@
   };
   load().catch(e => document.getElementById("err").textContent = e.message);
 </script>
+<script src="/static/nav.js"></script>
 </body>
 </html>
