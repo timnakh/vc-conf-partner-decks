@@ -692,6 +692,7 @@ async def poster_fill(
     posting_dates: str = Form(""),
     first_post_date: str = Form(""),
     confirmed: str = Form(""),
+    logo_scale: str = Form("64"),
     url: str = Form(""),
     promo: str = Form(""),
     website: str = Form(""),
@@ -725,6 +726,7 @@ async def poster_fill(
             posting_dates=posting_dates,
             first_post_date=first_post_date,
             confirmed=materials.as_confirmed(confirmed),
+            logo_scale=logo_scale,
         )
         _busy_progress(1, 1)
     except Exception as e:

@@ -13,6 +13,7 @@ from PIL import Image, ImageDraw, ImageFont
 from fill import (
     FONT_FILES,
     SAFE_FILE,
+    _is_photo,
     _logo_by_company,
     _photo_from_row,
     _place_mark,
@@ -27,6 +28,7 @@ ROOT = Path(__file__).resolve().parent
 POSTER_DIR = ROOT / "assets" / "posters"
 SPEC_PATH = POSTER_DIR / "spec.json"
 DEFAULT_URL = "https://vcconf.com/?15"
+DEFAULT_LOGO_SCALE = 0.64
 INK = (11, 31, 63, 255)
 GRAD0 = (56, 163, 255)
 GRAD1 = (31, 96, 224)
@@ -182,7 +184,31 @@ def _preview(im: Image.Image, size: tuple[int, int]) -> bytes:
     return buf.getvalue()
 
 
-def _fill_kind(kind: str, name: str, shown_url: str, logo) -> Image.Image:
+def clamp_logo_scale(value) -> float:
+    if value is None or value == "":
+        return DEFAULT_LOGO_SCALE
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return DEFAULT_LOGO_SCALE
+    if n > 1:
+        n = n / 100.0
+    return min(0.80, max(0.50, n))
+
+
+def _contain_in_box(src: Image.Image, size: int) -> Image.Image:
+    mark = _trim_mark(src)
+    mw, mh = mark.size
+    scale = min(size / max(mw, 1), size / max(mh, 1))
+    nw = max(1, round(mw * scale))
+    nh = max(1, round(mh * scale))
+    mark = mark.resize((nw, nh), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas.paste(mark, ((size - nw) // 2, (size - nh) // 2), mark)
+    return canvas
+
+
+def _fill_kind(kind: str, name: str, shown_url: str, logo, logo_scale: float = DEFAULT_LOGO_SCALE) -> Image.Image:
     spec = _spec()[kind]
     im = _base(kind).copy()
     draw = ImageDraw.Draw(im)
@@ -193,12 +219,13 @@ def _fill_kind(kind: str, name: str, shown_url: str, logo) -> Image.Image:
         if hasattr(logo, "seek"):
             logo.seek(0)
         src = Image.open(logo)
-        trimmed = _trim_mark(src)
-        ratio = trimmed.width / max(trimmed.height, 1)
-        frac = 0.88 if ratio >= 2 else 0.74
-        inner = max(8, round(lw * frac))
-        mark = _place_mark(trimmed, inner, inner // 2)
-        im.paste(mark, (lx + (lw - inner) // 2, ly + (lw - inner) // 2), mark)
+        if _is_photo(src):
+            mark = _place_mark(src, lw, lw // 2)
+            im.paste(mark, (lx, ly), mark)
+        else:
+            inner = max(8, round(lw * clamp_logo_scale(logo_scale)))
+            mark = _contain_in_box(src, inner)
+            im.paste(mark, (lx + (lw - inner) // 2, ly + (lw - inner) // 2), mark)
         draw = ImageDraw.Draw(im)
 
     name_s = spec["name"]
@@ -252,6 +279,7 @@ def fill_poster(
     posting_dates: str = "",
     first_post_date: str = "",
     confirmed: bool = True,
+    logo_scale: float = DEFAULT_LOGO_SCALE,
 ) -> dict:
     name = display_name(company) or (company or "").strip()
     if not name:
@@ -260,13 +288,14 @@ def fill_poster(
     final_url = apply_utm(entered, name)
     shown_url = print_url(entered)
     code = (promo or "").strip().upper()
-    portrait = _fill_kind("portrait", name, shown_url, logo)
+    scale = clamp_logo_scale(logo_scale)
+    portrait = _fill_kind("portrait", name, shown_url, logo, scale)
     if logo is not None and hasattr(logo, "seek"):
         logo.seek(0)
-    square = _fill_kind("square", name, shown_url, logo)
+    square = _fill_kind("square", name, shown_url, logo, scale)
     if logo is not None and hasattr(logo, "seek"):
         logo.seek(0)
-    banner = _fill_kind("banner", name, shown_url, logo)
+    banner = _fill_kind("banner", name, shown_url, logo, scale)
     meta = {
         "company": name,
         "url": final_url,
@@ -275,6 +304,7 @@ def fill_poster(
         "posting_dates": (posting_dates or "").strip(),
         "first_post_date": (first_post_date or "").strip(),
         "confirmed": bool(confirmed),
+        "logo_scale": scale,
         "kind": "media-partner",
     }
     return {
@@ -350,6 +380,9 @@ def fill_posters_from_csv(
             confirmed = _kit_ok(lower.get("confirmed"))
         else:
             confirmed = True
+        logo_scale = clamp_logo_scale(
+            lower.get("logo_scale") or lower.get("logo_pct") or lower.get("scale") or ""
+        )
         photo_val = lower.get("logo") or lower.get("photo") or lower.get("image") or ""
         photo = _photo_from_row(photo_val, None, logos_map) if photo_val else None
         if photo is None:
@@ -369,6 +402,7 @@ def fill_posters_from_csv(
                 posting_dates=posting_dates,
                 first_post_date=first_post_date,
                 confirmed=confirmed,
+                logo_scale=logo_scale,
             )
         except Exception as e:
             failed.append({"name": company, "url": link, "reason": str(e), "row": original})

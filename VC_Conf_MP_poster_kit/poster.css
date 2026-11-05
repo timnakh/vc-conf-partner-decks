@@ -41,7 +41,7 @@ body { font-family: "Inter", sans-serif; color: var(--ink); -webkit-font-smoothi
 /* Partner block */
 .ring { border-radius: 50%; background: var(--grad); }
 .logo-circle { position: absolute; border-radius: 50%; background: #fff; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.logo-circle img { width: 74%; height: 74%; object-fit: contain; }
+.logo-circle img { width: 64%; height: 64%; object-fit: contain; }
 .logo-circle img[src=""] { display: none; }
 .company { font-weight: 800; letter-spacing: -0.03em; }
 .pill { display: flex; align-items: center; background: #fff; border: 2px solid var(--line); border-radius: 999px; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; }
