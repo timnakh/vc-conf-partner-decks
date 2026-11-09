@@ -31,6 +31,7 @@
     .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0 12px; }
     button { background:var(--ink); color:#fff; border:0; border-radius:10px; padding:8px 14px; font:600 13px Inter, sans-serif; cursor:pointer; }
     button.ghost { background:#fff; color:var(--ink); border:1px solid #ead9b3; }
+    button.d-went { background:#16a34a; }
     button:disabled { opacity:.5; }
     input, select, textarea { font:inherit; padding:8px 10px; border:1px solid #ead9b3; border-radius:10px; background:#fffef9; }
     label { font-size:12px; color:var(--muted); display:block; margin:8px 0 4px; }
@@ -276,10 +277,11 @@ function fieldset(e) {
       <label>Канал</label><select class="d-ch">${["newsletter","linkedin","other"].map(c=>`<option ${c===e.channel?"selected":""}>${c}</option>`).join("")}</select>
       <label>Post</label><select class="d-n">${[1,2,3,4].map(n=>`<option ${n===e.post_number?"selected":""}>${n}</option>`).join("")}</select>
       <label>Статус</label><select class="d-st">${["planned","reminded","published","missed","rescheduled"].map(s=>`<option ${s===e.status?"selected":""}>${s}</option>`).join("")}</select>
-      <label>Ссылка на выход</label><input class="d-url" type="url" value="${esc(e.url)}" />
+      <label>Ссылка на выход</label><input class="d-url" type="url" value="${esc(e.url)}" placeholder="вставь ссылку — и нажми Вышел" />
       <label>Заметки</label><textarea class="d-notes">${esc(e.notes)}</textarea>
       <div class="row">
-        <button type="button" class="d-save">Сохранить</button>
+        <button type="button" class="d-went">Вышел</button>
+        <button type="button" class="ghost d-save">Сохранить</button>
         <button type="button" class="ghost d-remind">Напоминание партнёру</button>
       </div>
       <div class="d-msg"></div>
@@ -287,22 +289,27 @@ function fieldset(e) {
     </div>`;
 }
 function bindCard(card, e) {
-  card.querySelector(".d-save").onclick = async () => {
-    const payload = {
+  const payloadOf = (mark) => {
+    const url = card.querySelector(".d-url").value.trim();
+    return {
       date: card.querySelector(".d-date").value,
       channel: card.querySelector(".d-ch").value,
       post_number: Number(card.querySelector(".d-n").value),
-      status: card.querySelector(".d-st").value,
-      url: card.querySelector(".d-url").value,
+      status: mark || card.querySelector(".d-st").value,
+      url,
       notes: card.querySelector(".d-notes").value,
     };
+  };
+  const save = async (payload, ok) => {
     try {
       await j("/api/publications/" + e.id, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
       await load();
       openGroup(e.partner_id + "|" + payload.date);
-      card.querySelector(".d-msg").innerHTML = "<p class='ok'>сохранено</p>";
+      card.querySelector(".d-msg").innerHTML = "<p class='ok'>" + ok + "</p>";
     } catch (err) { card.querySelector(".d-msg").innerHTML = "<p class='err'>"+esc(err.message)+"</p>"; }
   };
+  card.querySelector(".d-save").onclick = () => save(payloadOf(), "сохранено");
+  card.querySelector(".d-went").onclick = () => save(payloadOf("published"), "отмечен как вышел");
   card.querySelector(".d-remind").onclick = async () => {
     try {
       const data = await j("/api/publications/" + e.id + "/reminder");

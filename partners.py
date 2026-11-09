@@ -830,10 +830,10 @@ def update_publication(pid: int, **fields) -> dict:
             notes = fields["notes"] if "notes" in fields else (current["notes"] or "")
             if note not in (notes or ""):
                 extra["notes"] = (note + (". " + notes if notes else "")).strip()
-        url_val = fields.get("url", None)
-        if url_val is not None and str(url_val).strip() and current["status"] != "published":
-            extra.setdefault("status", "published")
-        fields = {**extra, **fields}
+        url_in = fields.get("url", None)
+        if url_in is not None and str(url_in).strip() and fields.get("status") != "missed":
+            extra["status"] = "published"
+        fields = {**fields, **extra}
         sets = []
         vals = []
         for k, v in fields.items():
