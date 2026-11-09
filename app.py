@@ -45,7 +45,16 @@ ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 
 app = FastAPI(title="Презентации для партнёров")
-app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+class _Static(StaticFiles):
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        resp.headers["Cache-Control"] = "no-store, max-age=0"
+        return resp
+
+
+app.mount("/static", _Static(directory=STATIC), name="static")
 
 
 ADMIN_PATHS = (

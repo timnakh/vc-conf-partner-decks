@@ -59,6 +59,16 @@
     .scrim.on { display:block; }
     textarea.copy { width:100%; min-height:140px; font:12px/1.4 ui-monospace, Menlo, monospace; }
     .pub-card { border:1px solid #f1e4c8; border-radius:12px; padding:10px 12px; margin:10px 0; }
+    .prog-sum { margin: 0 0 14px; font-size: 15px; }
+    .prog-sum b { font-size: 22px; letter-spacing: -.03em; }
+    .prog-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .prog { display: flex; gap: 3px; height: 12px; min-width: 88px; flex: 1; max-width: 220px; }
+    .prog i { flex: 1; min-width: 6px; border-radius: 3px; background: #ead9b3; }
+    .prog i.ok { background: #16a34a; }
+    .prog i.miss { background: #dc2626; }
+    .prog-n { font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .prog-n .left { color: #c2410c; }
+    .prog-n .done { color: #166534; }
   </style>
 </head>
 <body>
@@ -108,6 +118,20 @@
 <div class="scrim" id="scrim"></div>
 <aside class="drawer" id="drawer"></aside>
 <script>
+function ticksBar(ticks) {
+  ticks = ticks || [];
+  if (!ticks.length) return '<span class="hint">нет выходов</span>';
+  const done = ticks.filter((s) => s === "published").length;
+  const left = ticks.length - done;
+  const cells = ticks.map((s) => {
+    const cls = s === "published" ? "ok" : s === "missed" ? "miss" : "";
+    return `<i class="${cls}" title="${s}"></i>`;
+  }).join("");
+  const label = left === 0
+    ? `<span class="done">${done}/${ticks.length} · всё вышло</span>`
+    : `${done}/${ticks.length} · <span class="left">осталось ${left}</span>`;
+  return `<span class="prog-line"><span class="prog">${cells}</span><span class="prog-n">${label}</span></span>`;
+}
 const CH = { newsletter:"NL", linkedin:"LI", other:"X" };
 let DATA = { events:[], today_panel:{}, timeline:[], telegram:false };
 let calendar;
@@ -202,7 +226,7 @@ function renderToday() {
     : "";
   const g = DATA.progress || {};
   const sum = (g.total
-    ? `<div class="prog-sum"><span>Вышло <b>${g.done || 0}</b></span><span>Осталось <b>${g.left || 0}</b></span></div>`
+    ? `<div class="prog-sum">Вышло <b>${g.done || 0}</b> · осталось <b>${g.left || 0}</b></div>`
     : "");
   const vis = (DATA.timeline || []).filter(x => document.getElementById("show-drafts").checked || x.confirmed);
   const open = vis.filter(x => (x.pubs || []).some(pub => pub.status !== "published"));

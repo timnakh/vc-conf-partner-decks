@@ -33,6 +33,14 @@
     .log { font-size:12px; color:var(--muted); }
     .badge { display:inline-block; font-size:12px; padding:2px 8px; border-radius:99px; background:#f1e4c8; }
     .badge.on { background:#dcfce7; }
+    .prog-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .prog { display: flex; gap: 3px; height: 12px; min-width: 88px; flex: 1; max-width: 220px; }
+    .prog i { flex: 1; min-width: 6px; border-radius: 3px; background: #ead9b3; }
+    .prog i.ok { background: #16a34a; }
+    .prog i.miss { background: #dc2626; }
+    .prog-n { font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .prog-n .left { color: #c2410c; }
+    .prog-n .done { color: #166534; }
   </style>
 </head>
 <body>
@@ -80,6 +88,20 @@
   </section>
 </main>
 <script>
+  function ticksBar(ticks) {
+    ticks = ticks || [];
+    if (!ticks.length) return '<span class="hint">нет выходов</span>';
+    const done = ticks.filter((s) => s === "published").length;
+    const left = ticks.length - done;
+    const cells = ticks.map((s) => {
+      const cls = s === "published" ? "ok" : s === "missed" ? "miss" : "";
+      return `<i class="${cls}" title="${s}"></i>`;
+    }).join("");
+    const label = left === 0
+      ? `<span class="done">${done}/${ticks.length} · всё вышло</span>`
+      : `${done}/${ticks.length} · <span class="left">осталось ${left}</span>`;
+    return `<span class="prog-line"><span class="prog">${cells}</span><span class="prog-n">${label}</span></span>`;
+  }
   const pid = Number(location.pathname.split("/").pop());
   async function j(url, opts) {
     const res = await fetch(url, opts);
