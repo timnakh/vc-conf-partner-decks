@@ -62,6 +62,7 @@
   </style>
 </head>
 <body>
+<script src="/static/nav.js"></script>
 <main>
   <h1>Календарь медиапартнёров</h1>
   <p class="lead">Цвет плашки — партнёр. ✓ вышел, ⏰ напомнили, ⚠ просрочено. Черновик — жёлтый пунктир.</p>
@@ -199,8 +200,20 @@ function renderToday() {
   const draftLine = n
     ? `<p class="item">Черновиков на проверку: <a href="/import">${n} → /import</a></p>`
     : "";
+  const g = DATA.progress || {};
+  const sum = (g.total
+    ? `<div class="prog-sum"><span>Вышло <b>${g.done || 0}</b></span><span>Осталось <b>${g.left || 0}</b></span></div>`
+    : "");
+  const vis = (DATA.timeline || []).filter(x => document.getElementById("show-drafts").checked || x.confirmed);
+  const open = vis.filter(x => (x.pubs || []).some(pub => pub.status !== "published"));
+  const closed = vis.length - open.length;
+  const board = open.map(x => {
+    const ticks = (x.pubs || []).map(pub => pub.status);
+    return `<div class="item"><a href="/partners/${x.id}">${esc(x.company)}</a>${ticksBar(ticks)}</div>`;
+  }).join("");
+  const closedLine = closed ? `<p class="hint">Все выходы закрыты: ${closed}</p>` : "";
   document.getElementById("today").innerHTML =
-    `<h2>Сегодня</h2>${block("Выходят сегодня", p.today)}${block("Напомнить (3 дня)", p.remind)}${block("Просрочено", p.overdue)}${block("Без ссылки", p.no_url)}${draftLine || "<p class='hint'>нет черновиков</p>"}`;
+    `<h2>Сегодня</h2>${sum}${block("Выходят сегодня", p.today)}${block("Напомнить (3 дня)", p.remind)}${block("Просрочено", p.overdue)}${block("Без ссылки", p.no_url)}<h3>Кто сколько выпустил</h3>${board || "<p class='hint'>все закрыли выходы</p>"}${closedLine}${draftLine || ""}`;
 }
 function renderTl() {
   const drafts = document.getElementById("show-drafts").checked;
@@ -217,7 +230,7 @@ function renderTl() {
   }).join("");
   document.getElementById("tl").innerHTML =
     `<h2>Ноябрь–январь по партнёрам</h2><table><thead><tr><th>Партнёр</th>${months.map(m=>"<th>"+m[1]+"</th>").join("")}</tr></thead><tbody>` +
-    rows.map(p => `<tr class="${p.confirmed?"":"draft-row"}"><td><a href="/partners/${p.id}">${esc(p.company)}</a>${p.confirmed?"":" · черновик"}</td>${cells(p)}</tr>`).join("") +
+    rows.map(p => `<tr class="${p.confirmed?"":"draft-row"}"><td><a href="/partners/${p.id}">${esc(p.company)}</a>${p.confirmed?"":" · черновик"}<div style="margin-top:6px">${ticksBar((p.pubs||[]).map(x=>x.status))}</div></td>${cells(p)}</tr>`).join("") +
     "</tbody></table>";
 }
 function refreshCal() {
@@ -396,6 +409,5 @@ document.getElementById("btn-add").onclick = async () => {
 };
 load().catch(err => { document.getElementById("msg").innerHTML = "<span class='err'>"+esc(err.message)+"</span>"; });
 </script>
-<script src="/static/nav.js"></script>
 </body>
 </html>

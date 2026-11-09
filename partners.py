@@ -753,12 +753,16 @@ def calendar_bundle() -> dict:
         events.append(ev)
         pack = by_partner.setdefault(
             r[10],
-            {"id": r[10], "company": r[11], "confirmed": confirmed, "color": color, "pubs": []},
+            {"id": r[10], "company": r[11], "confirmed": confirmed, "color": color,
+             "pubs": [], "done": 0, "total": 0},
         )
         pack["pubs"].append(
             {"id": ev["id"], "date": ev["date"], "channel": ev["channel"],
              "post_number": ev["post_number"], "status": ev["status"]}
         )
+        if ev["status"] == "published":
+            pack["done"] = pack.get("done", 0) + 1
+        pack["total"] = pack.get("total", 0) + 1
         if not confirmed:
             continue
         d = r[1]
@@ -781,11 +785,20 @@ def calendar_bundle() -> dict:
             if not in_other:
                 buckets["week"].append(ev)
                 seen_week.add(ev["id"])
+    conf_ev = [e for e in events if e["confirmed"]]
     return {
         "today": today.isoformat(),
         "events": events,
         "today_panel": buckets,
-        "timeline": sorted(by_partner.values(), key=lambda x: x["company"].lower()),
+        "progress": {
+            "done": sum(1 for e in conf_ev if e["status"] == "published"),
+            "total": len(conf_ev),
+            "left": sum(1 for e in conf_ev if e["status"] != "published"),
+        },
+        "timeline": sorted(
+            by_partner.values(),
+            key=lambda x: (-(x.get("total", 0) - x.get("done", 0)), x["company"].lower()),
+        ),
     }
 
 
@@ -987,13 +1000,22 @@ def list_partners(q: str = "") -> list[dict]:
                     "SELECT id FROM partner ORDER BY confirmed DESC, lower(company)"
                 ).fetchall()
             ]
+        ticks: dict[int, list[str]] = {}
+        for pid, st in cur.execute(
+            "SELECT partner_id, status FROM publication ORDER BY date, post_number, channel"
+        ).fetchall():
+            ticks.setdefault(pid, []).append(st)
         out = []
         for i in ids:
             row = _partner_row(cur, i)
-            n = cur.execute(
-                "SELECT count(*) FROM publication WHERE partner_id=%s", (i,)
-            ).fetchone()[0]
-            row["pub_count"] = n
+            seq = ticks.get(i) or []
+            done = sum(1 for s in seq if s == "published")
+            missed = sum(1 for s in seq if s == "missed")
+            row["pub_count"] = len(seq)
+            row["done"] = done
+            row["missed"] = missed
+            row["left"] = max(0, len(seq) - done)
+            row["ticks"] = seq
             out.append(row)
         return out
 

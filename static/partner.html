@@ -36,6 +36,7 @@
   </style>
 </head>
 <body>
+<script src="/static/nav.js"></script>
 <main>
   <h1 id="title">Партнёр</h1>
   <p class="hint" id="status"></p>
@@ -91,7 +92,10 @@
   function esc(v) { return String(v ?? "").replace(/[&<>"]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s])); }
   function render(p) {
     document.getElementById("title").textContent = p.company;
-    document.getElementById("status").innerHTML = `<span class="badge ${p.confirmed ? "on" : ""}">${esc(p.status)}</span>`;
+    const ticks = (p.publications || []).map(x => x.status);
+    document.getElementById("status").innerHTML =
+      `<span class="badge ${p.confirmed ? "on" : ""}">${esc(p.status)}</span>` +
+      `<div style="margin-top:8px">${ticksBar(ticks)}</div>`;
     const f = document.getElementById("card");
     for (const name of ["company","code","reg_url","notion_page_url","posting_dates_raw","first_post_date","notes"]) {
       f[name].value = p[name] || "";
@@ -173,6 +177,5 @@
   };
   load().catch(e => document.getElementById("err").textContent = e.message);
 </script>
-<script src="/static/nav.js"></script>
 </body>
 </html>

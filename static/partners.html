@@ -33,9 +33,11 @@
   </style>
 </head>
 <body>
+<script src="/static/nav.js"></script>
 <main>
   <h1>Партнёры</h1>
-  <p class="lead">Поиск по компании, коду или ссылке.</p>
+  <p class="lead">Зелёное — уже вышло, серое — ещё нет, красное — пропущено.</p>
+  <div id="sum" class="prog-sum"></div>
   <section>
     <div class="row">
       <input id="q" type="search" placeholder="поиск" style="max-width:320px" />
@@ -43,7 +45,7 @@
     </div>
     <div id="err" class="err"></div>
     <table>
-      <thead><tr><th>Компания</th><th>Код</th><th>Статус</th><th>Выходы</th></tr></thead>
+      <thead><tr><th>Компания</th><th>Прогресс</th></tr></thead>
       <tbody id="body"></tbody>
     </table>
   </section>
@@ -77,13 +79,25 @@
   async function load() {
     const q = document.getElementById("q").value.trim();
     const data = await j("/api/partners" + (q ? "?q=" + encodeURIComponent(q) : ""));
-    document.getElementById("body").innerHTML = (data.partners || []).map(p => `
-      <tr>
-        <td><a href="/partners/${p.id}">${p.company}</a></td>
-        <td>${p.code || "—"}</td>
-        <td><span class="badge ${p.confirmed ? "on" : ""}">${p.status}</span></td>
-        <td>${p.pub_count}</td>
-      </tr>`).join("") || `<tr><td colspan="4">пусто</td></tr>`;
+    const list = (data.partners || []).slice().sort((a, b) =>
+      Number(b.confirmed) - Number(a.confirmed) || (b.left || 0) - (a.left || 0) || (a.company || "").localeCompare(b.company || "")
+    );
+    const live = list.filter(p => p.confirmed);
+    const done = live.reduce((n, p) => n + (p.done || 0), 0);
+    const total = live.reduce((n, p) => n + (p.pub_count || 0), 0);
+    const left = Math.max(0, total - done);
+    document.getElementById("sum").innerHTML = total
+      ? `<span>Вышло <b>${done}</b></span><span>Осталось <b>${left}</b></span><span>Всего <b>${total}</b></span>`
+      : "";
+    document.getElementById("body").innerHTML = list.map(p => `
+      <tr class="score-row">
+        <td>
+          <a href="/partners/${p.id}">${p.company}</a>
+          ${p.confirmed ? "" : ' <span class="badge">черновик</span>'}
+          <div class="hint">${p.code || ""}</div>
+        </td>
+        <td>${ticksBar(p.ticks)}</td>
+      </tr>`).join("") || `<tr><td colspan="2">пусто</td></tr>`;
   }
   document.getElementById("btn-search").onclick = () => load().catch(e => document.getElementById("err").textContent = e.message);
   document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("btn-search").click(); });
@@ -108,6 +122,5 @@
   };
   load().catch(e => document.getElementById("err").textContent = e.message);
 </script>
-<script src="/static/nav.js"></script>
 </body>
 </html>

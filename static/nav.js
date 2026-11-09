@@ -19,3 +19,18 @@
     "</div>";
   document.body.prepend(bar);
 })();
+
+function ticksBar(ticks) {
+  ticks = ticks || [];
+  if (!ticks.length) return '<span class="hint">нет выходов</span>';
+  const done = ticks.filter((s) => s === "published").length;
+  const left = ticks.length - done;
+  const cells = ticks.map((s) => {
+    const cls = s === "published" ? "ok" : s === "missed" ? "miss" : "";
+    return `<i class="${cls}" title="${s}"></i>`;
+  }).join("");
+  const label = left === 0
+    ? `<span class="done">${done}/${ticks.length} · всё вышло</span>`
+    : `${done}/${ticks.length} · <span class="left">осталось ${left}</span>`;
+  return `<span class="prog-line"><span class="prog">${cells}</span><span class="prog-n">${label}</span></span>`;
+}

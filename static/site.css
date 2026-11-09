@@ -50,3 +50,18 @@
   .home-grid { grid-template-columns: 1fr; }
   .home-hero h1 { font-size: 28px; }
 }
+
+.prog-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.prog { display: flex; gap: 3px; height: 12px; min-width: 88px; flex: 1; max-width: 220px; }
+.prog i { flex: 1; min-width: 6px; border-radius: 3px; background: #ead9b3; }
+.prog i.ok { background: #16a34a; }
+.prog i.miss { background: #dc2626; }
+.prog-n { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.prog-n .left { color: #c2410c; }
+.prog-n .done { color: #166534; }
+.prog-sum {
+  display: flex; gap: 16px; flex-wrap: wrap; align-items: baseline;
+  margin: 0 0 14px; font-size: 15px;
+}
+.prog-sum b { font-size: 22px; letter-spacing: -.03em; }
+.score-row td { vertical-align: middle; }
