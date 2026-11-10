@@ -343,7 +343,12 @@ function closeDrawer() {
   document.getElementById("drawer").classList.remove("on");
 }
 async function load() {
-  DATA = await j("/api/calendar");
+  try {
+    DATA = await j("/api/calendar");
+  } catch (err) {
+    DATA = { events: [], today_panel: {}, timeline: [], today: new Date().toISOString().slice(0, 10) };
+    document.getElementById("msg").innerHTML = "<span class='err'>" + esc(err.message) + "</span>";
+  }
   const sel = document.getElementById("new-partner");
   const seen = new Map();
   DATA.events.forEach(e => seen.set(e.partner_id, e.company));
@@ -387,10 +392,14 @@ async function load() {
   }
   const tick = DATA.digest || {};
   const msg = document.getElementById("msg");
-  msg.textContent = DATA.telegram
-    ? (tick.sent ? "дайджест ушёл в Telegram" : (tick.reason || tick.error || ""))
-    : "Telegram не подключён.";
-  refreshCal();
+  if (!msg.querySelector(".err")) {
+    msg.textContent = DATA.telegram
+      ? (tick.sent ? "дайджест ушёл в Telegram" : (tick.reason || tick.error || ""))
+      : "Telegram не подключён.";
+  }
+  try { refreshCal(); } catch (err) {
+    msg.innerHTML = "<span class='err'>" + esc(err.message) + "</span>";
+  }
 }
 document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
   document.getElementById("tl").style.display = "none";

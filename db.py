@@ -145,15 +145,19 @@ def connect():
         raise RuntimeError(MISSING)
     last = None
     for i in range(5):
+        started = False
         try:
             with _pool().connection() as conn:
                 if not _SCHEMA_OK:
                     conn.execute(SCHEMA)
                     conn.commit()
                     _SCHEMA_OK = True
+                started = True
                 yield conn
                 return
         except Exception as e:
+            if started:
+                raise
             last = e
             time.sleep(1.5 * (i + 1))
     raise RuntimeError(f"Neon не отвечает: {last}") from last
