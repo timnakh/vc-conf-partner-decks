@@ -19,7 +19,7 @@ from starlette.background import BackgroundTask
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from fetch_logo import fetch_logo
+from fetch_logo import decode_logo, fetch_logo, load_from_url
 from names import display_name
 import store
 from fill import (
@@ -210,6 +210,13 @@ class PartnerPatch(BaseModel):
     first_post_date: Optional[str] = None
     notes: Optional[str] = None
     confirmed: Optional[bool] = None
+    first_name: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
+    logo_scale: Optional[str] = None
+    poster_url: Optional[str] = None
+    poster_square_url: Optional[str] = None
+    poster_banner_url: Optional[str] = None
 
 
 class PubCreate(BaseModel):
@@ -622,6 +629,17 @@ def poster_materials(fill_id: str, update_partner: bool = False):
             first_post_date=first_post_date,
             confirmed=kit_ok,
         )
+        stored_logo = (item.get("meta") or {}).get("logo_url") or ""
+        if item.get("logo_png") and store.configured():
+            try:
+                stored_logo = store.put_file(
+                    store.object_key(f"{company} logo.png", "logos"),
+                    item["logo_png"],
+                    f"{company} logo.png",
+                    "image/png",
+                )
+            except Exception:
+                pass
         notion_url = ""
         notion_error = ""
         if notionmod.configured():
@@ -644,19 +662,46 @@ def poster_materials(fill_id: str, update_partner: bool = False):
         partner_id = 0
         if db.configured():
             try:
-                saved = partners.create_or_conflict(
-                    company=company,
-                    code=promo,
-                    reg_url=track,
-                    notion_page_url=notion_url,
-                    posting_dates_raw=posting_dates,
-                    first_post_date=first_post_date,
-                    confirmed=True,
-                    update_existing=update_partner,
-                    rebuild_pubs=None,
-                )
-                partner_conflict = bool(saved.get("conflict"))
-                partner_id = (saved.get("partner") or saved.get("existing") or {}).get("id") or 0
+                partner_id = int(item.get("partner_id") or 0)
+                if not partner_id:
+                    saved = partners.create_or_conflict(
+                        company=company,
+                        code=promo,
+                        reg_url=track,
+                        notion_page_url=html_url or notion_url,
+                        posting_dates_raw=posting_dates,
+                        first_post_date=first_post_date,
+                        confirmed=True,
+                        update_existing=True,
+                        rebuild_pubs=False,
+                    )
+                    partner_conflict = bool(saved.get("conflict"))
+                    partner_id = (saved.get("partner") or saved.get("existing") or {}).get("id") or 0
+                if partner_id:
+                    scale = (item.get("meta") or {}).get("logo_scale") or ""
+                    try:
+                        n = float(scale)
+                        if 0 < n <= 1:
+                            scale = str(int(round(n * 100)))
+                    except (TypeError, ValueError):
+                        scale = str(scale or "")
+                    partners.save_partner(
+                        partner_id,
+                        company=company,
+                        code=promo,
+                        reg_url=track,
+                        notion_page_url=html_url or notion_url,
+                        posting_dates_raw=posting_dates,
+                        first_post_date=first_post_date,
+                        confirmed=kit_ok,
+                        first_name=first_name,
+                        website=(item.get("meta") or {}).get("website") or "",
+                        logo_url=stored_logo,
+                        logo_scale=str(scale),
+                        poster_url=poster_url,
+                        poster_square_url=poster_square_url,
+                        poster_banner_url=poster_banner_url,
+                    )
             except Exception as e:
                 notion_error = (notion_error + " | " if notion_error else "") + f"БД: {e}"
     except Exception as e:
@@ -693,6 +738,57 @@ def posters():
     )
 
 
+def _decode_logo_input(
+    *,
+    file_bytes: bytes | None,
+    filename: str = "",
+    ctype: str = "",
+    logo_url: str = "",
+    website: str = "",
+    stored_url: str = "",
+) -> dict:
+    if file_bytes:
+        return decode_logo(file_bytes, filename, ctype)
+    if (logo_url or "").strip():
+        try:
+            return load_from_url(logo_url.strip())
+        except Exception:
+            raw = fetch_logo(logo_url.strip()).getvalue()
+            return decode_logo(raw, logo_url, "")
+    if (stored_url or "").strip():
+        return load_from_url(stored_url.strip())
+    if (website or "").strip():
+        raw = fetch_logo(website.strip()).getvalue()
+        return decode_logo(raw, website, "")
+    return {}
+
+
+@app.post("/poster/logo-check")
+async def poster_logo_check(
+    logo: Optional[UploadFile] = File(None),
+    logo_url: str = Form(""),
+):
+    try:
+        raw = b""
+        name = ""
+        ctype = ""
+        if logo is not None and logo.filename:
+            raw = await logo.read()
+            name = logo.filename
+            ctype = logo.content_type or ""
+        info = _decode_logo_input(file_bytes=raw or None, filename=name, ctype=ctype, logo_url=logo_url)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    if not info:
+        raise HTTPException(400, "нет файла и нет URL")
+    return {
+        "width": info["width"],
+        "height": info["height"],
+        "svg": info["svg"],
+        "warn": info["warn"],
+    }
+
+
 @app.post("/poster/fill")
 async def poster_fill(
     company: str = Form(""),
@@ -705,6 +801,8 @@ async def poster_fill(
     url: str = Form(""),
     promo: str = Form(""),
     website: str = Form(""),
+    logo_url: str = Form(""),
+    partner_id: str = Form(""),
     logo: Optional[UploadFile] = File(None),
     photo: Optional[UploadFile] = File(None),
     filename_pattern: str = Form(""),
@@ -712,15 +810,39 @@ async def poster_fill(
     person = display_name((company or name or "").strip()) or (company or name or "").strip()
     if not person:
         raise HTTPException(400, "укажи название компании")
-    image = None
-    chosen = logo if (logo is not None and logo.filename) else photo
-    if chosen is not None and chosen.filename:
-        image = io.BytesIO(await chosen.read())
-    elif website.strip():
+    stored_logo = ""
+    if (partner_id or "").strip().isdigit() and db.configured():
         try:
-            image = fetch_logo(website)
-        except Exception as e:
-            raise HTTPException(400, str(e)) from e
+            prow = partners.get_partner(int(partner_id))
+            stored_logo = prow.get("logo_url") or ""
+            if not website.strip():
+                website = prow.get("website") or ""
+        except Exception:
+            stored_logo = ""
+    image = None
+    logo_info: dict = {}
+    chosen = logo if (logo is not None and logo.filename) else photo
+    file_bytes = None
+    filename = ""
+    ctype = ""
+    if chosen is not None and chosen.filename:
+        file_bytes = await chosen.read()
+        filename = chosen.filename
+        ctype = chosen.content_type or ""
+    try:
+        logo_info = _decode_logo_input(
+            file_bytes=file_bytes,
+            filename=filename,
+            ctype=ctype,
+            logo_url=logo_url,
+            website=website,
+            stored_url=stored_logo,
+        )
+        if logo_info:
+            image = logo_info["png"]
+            image.seek(0)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
     token = _busy_acquire("fill", 1)
     if not token:
         raise HTTPException(409, _busy_snapshot()["message"])
@@ -746,6 +868,12 @@ async def poster_fill(
     square_name = f"VC Conf poster — {person} (LinkedIn).png"
     zip_name = filename.rsplit(".", 1)[0] + ".zip"
     fill_id = uuid.uuid4().hex
+    logo_png = b""
+    if logo_info:
+        logo_info["png"].seek(0)
+        logo_png = logo_info["png"].getvalue()
+    filled["meta"]["website"] = (website or "").strip()
+    filled["meta"]["logo_url"] = (logo_url or stored_logo or "").strip()
     FILLS[fill_id] = {
         "pdf": filled["portrait"],
         "filename": zip_name,
@@ -755,6 +883,8 @@ async def poster_fill(
         "template_id": "poster-mp",
         "content_type": "application/zip",
         "meta": filled["meta"],
+        "logo_png": logo_png,
+        "partner_id": int(partner_id) if str(partner_id).strip().isdigit() else 0,
         "files": [
             {
                 "filename": filename,
@@ -788,6 +918,10 @@ async def poster_fill(
             + base64.b64encode(filled["preview_square"]).decode(),
             "preview_banner": "data:image/jpeg;base64,"
             + base64.b64encode(filled["preview_banner"]).decode(),
+            "logo_warn": (logo_info or {}).get("warn") or "",
+            "logo_width": (logo_info or {}).get("width") or 0,
+            "logo_height": (logo_info or {}).get("height") or 0,
+            "logo_svg": bool((logo_info or {}).get("svg")),
         }
     )
 

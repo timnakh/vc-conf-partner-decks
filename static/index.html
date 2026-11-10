@@ -47,6 +47,12 @@
     .link-out.on { display:block; }
     .link-out input { font-size:13px; }
     .err { color:#b91c1c; font-size:14px; margin-top:10px; }
+    .warn { color:#92400e; font-size:14px; margin-top:8px; }
+    .diff { margin-top:12px; font-size:14px; background:#fff7ed; border:1px solid #f9d48a; border-radius:12px; padding:12px 14px; display:none; }
+    .diff.on { display:block; }
+    .diff li { margin:4px 0; }
+    .saved-row { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); }
+    .saved-row a.edit { font-weight:600; }
     .ok { color:#166534; font-size:14px; margin-top:10px; }
     .progress { display:none; margin-top:14px; }
     .progress.on { display:block; }
@@ -217,6 +223,13 @@
     <h1>Постеры и материалы</h1>
     <p class="lead">Вертикальный постер в рассылку и квадрат в LinkedIn. Промокод только в текстах, не на картинке.</p>
 
+    <section id="saved-kits">
+      <h2>Уже созданные</h2>
+      <p class="note" id="saved-hint" style="margin-top:0">Открой партнёра — форма заполнится. Нет лого в базе: загрузи файл или URL один раз.</p>
+      <div id="saved-err" class="err"></div>
+      <div id="saved-list"></div>
+    </section>
+
     <section>
       <h2>Шаблон</h2>
       <div class="row">
@@ -253,6 +266,7 @@
           <div>
             <label for="p-company">Компания</label>
             <input id="p-company" name="company" type="text" required placeholder="Founders Bay" />
+            <input id="p-partner-id" name="partner_id" type="hidden" />
           </div>
             <p class="note">Это имя рядом с логотипом.</p>
         </div>
@@ -301,10 +315,19 @@
         <div class="row">
           <div>
             <label for="p-logo">Логотип</label>
-            <input id="p-logo" name="logo" type="file" accept="image/*" />
+            <input id="p-logo" name="logo" type="file" accept="image/png,image/svg+xml,image/jpeg,image/*" />
           </div>
-            <p class="note">Лучше квадратная иконка, как аватар в LinkedIn.</p>
+            <p class="note">SVG или PNG. Маленький растр предупредим до сборки.</p>
         </div>
+        <div class="row">
+          <div>
+            <label for="p-logo-url">URL логотипа</label>
+            <input id="p-logo-url" name="logo_url" type="url" placeholder="https://…/logo.svg" />
+          </div>
+            <p class="note">Если файла нет — прямая ссылка на SVG/PNG.</p>
+        </div>
+        <p class="warn" id="p-logo-warn"></p>
+        <div class="zip-skip" id="p-missing" style="display:none"></div>
         <div class="row">
           <div>
             <label for="p-logo-scale">Масштаб лого</label>
@@ -329,7 +352,7 @@
           <div class="actions">
             <button type="button" id="p-one-download">Скачать PNG</button>
             <button type="button" class="ghost" id="p-one-share">Сделать ссылку</button>
-            <button type="button" class="ghost" id="p-notion">Собрать материалы</button>
+            <button type="button" class="ghost" id="p-notion">Сохранить и пересоздать</button>
           </div>
           <div class="link-out" id="p-one-link-box">
             <label for="p-one-link">Ссылка на PNG</label>
@@ -342,7 +365,8 @@
             <textarea class="md" id="p-md" hidden></textarea>
             <button type="button" class="ghost" id="p-md-copy">Скопировать тексты</button>
           </div>
-          <p class="note" id="p-notion-note">Ссылка на страницу с датами, текстами и постерами.</p>
+          <p class="note" id="p-notion-note">Скопируй markdown и целиком замени страницу в Notion. Картинки — ссылки на R2 с хешем в имени, старые URL не обновятся сами.</p>
+          <div class="diff" id="p-diff"></div>
         </div>
       </form>
     </section>
@@ -390,6 +414,121 @@
     document.getElementById("pane-decks").classList.toggle("on", !isMaterials);
     document.getElementById("pane-posters").classList.toggle("on", isMaterials);
     document.title = isMaterials ? "Постеры и материалы" : "Презентации";
+    let loadedPartner = null;
+    const kitFields = [
+      ["company", "p-company", "компания"],
+      ["first_name", "p-first", "имя контакта"],
+      ["reg_url", "p-url", "ссылка регистрации"],
+      ["code", "p-promo", "промокод"],
+      ["posting_dates_raw", "p-dates", "даты постинга"],
+      ["first_post_date", "p-first-post", "first post"],
+      ["website", "p-website", "сайт"],
+      ["logo_scale", "p-logo-scale", "масштаб лого"],
+    ];
+    function kitVal(id) { return (document.getElementById(id).value || "").trim(); }
+    function fillKit(p) {
+      loadedPartner = p;
+      document.getElementById("p-partner-id").value = p.id || "";
+      document.getElementById("p-company").value = p.company || "";
+      document.getElementById("p-first").value = p.first_name || "";
+      document.getElementById("p-url").value = p.reg_url || "https://vcconf.com/?15";
+      document.getElementById("p-promo").value = p.code || "";
+      document.getElementById("p-dates").value = p.posting_dates_raw || document.getElementById("p-dates").value;
+      document.getElementById("p-first-post").value = p.first_post_date || "";
+      document.getElementById("p-website").value = p.website || "";
+      document.getElementById("p-logo-url").value = p.logo_url || "";
+      let sc = p.logo_scale || "86";
+      if (Number(sc) > 0 && Number(sc) <= 1) sc = String(Math.round(Number(sc) * 100));
+      document.getElementById("p-logo-scale").value = sc;
+      document.getElementById("p-confirmed").checked = !!p.confirmed;
+      document.getElementById("p-notion").textContent = "Сохранить и пересоздать";
+      const miss = [];
+      if (!p.logo_url) miss.push("логотипа");
+      if (!p.reg_url) miss.push("ссылки регистрации");
+      if (!p.code) miss.push("промокода");
+      const box = document.getElementById("p-missing");
+      if (miss.length) {
+        box.style.display = "block";
+        box.textContent = "В карточке нет: " + miss.join(", ") + ". Дозаполни и сохрани.";
+      } else box.style.display = "none";
+    }
+    function kitDiffHtml() {
+      if (!loadedPartner) return "";
+      const bits = [];
+      kitFields.forEach(([key, id, label]) => {
+        const was = String(loadedPartner[key] || "").trim();
+        const now = kitVal(id);
+        if (was !== now) bits.push(`<li>${label}: «${was || "—"}» → «${now || "—"}»</li>`);
+      });
+      const wasOn = !!loadedPartner.confirmed;
+      const nowOn = document.getElementById("p-confirmed").checked;
+      if (wasOn !== nowOn) bits.push(`<li>подтверждён: ${wasOn ? "да" : "нет"} → ${nowOn ? "да" : "нет"}</li>`);
+      if (document.getElementById("p-logo").files.length) bits.push("<li>логотип: новый файл</li>");
+      else {
+        const wasL = String(loadedPartner.logo_url || "").trim();
+        const nowL = kitVal("p-logo-url");
+        if (wasL !== nowL) bits.push(`<li>URL лого: «${wasL || "—"}» → «${nowL || "—"}»</li>`);
+      }
+      if (!bits.length) return "<p>Поля как в карточке. Пересборка обновит картинки.</p>";
+      return "<p><b>Изменится</b></p><ul>" + bits.join("") + "</ul>";
+    }
+    async function loadSavedKits() {
+      const list = document.getElementById("saved-list");
+      const err = document.getElementById("saved-err");
+      const hint = document.getElementById("saved-hint");
+      if (!list) return;
+      try {
+        const res = await fetch("/api/partners");
+        if (res.status === 401) {
+          hint.textContent = "Список после входа в Медиапартнёры (замок в меню).";
+          return;
+        }
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        const rows = data.partners || [];
+        list.innerHTML = rows.map(p => {
+          const miss = (p.kit_missing || []).length ? ` · нет ${p.kit_missing.join(", ")}` : "";
+          return `<div class="saved-row"><span><b>${p.company}</b> ${p.code ? "· " + p.code : ""}<span class="note" style="margin:0">${miss}</span></span><a class="edit" href="/materials?p=${p.id}">Редактировать</a></div>`;
+        }).join("") || "<p class='note'>Пока никого нет — собери материалы один раз, карточка сохранится.</p>";
+      } catch (e) {
+        err.textContent = e.message || "не загрузил список";
+      }
+    }
+    async function checkLogo() {
+      const warn = document.getElementById("p-logo-warn");
+      const file = document.getElementById("p-logo").files[0];
+      const url = kitVal("p-logo-url");
+      warn.textContent = "";
+      if (!file && !url) return;
+      const fd = new FormData();
+      if (file) fd.append("logo", file);
+      if (url) fd.append("logo_url", url);
+      try {
+        const res = await fetch("/poster/logo-check", { method: "POST", body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          warn.textContent = data.detail || res.statusText;
+          return;
+        }
+        if (data.warn) warn.textContent = data.warn;
+        else if (data.svg) warn.textContent = `SVG → ${data.width}×${data.height} px`;
+        else warn.textContent = `${data.width}×${data.height} px — ок`;
+      } catch (e) {
+        warn.textContent = e.message;
+      }
+    }
+    if (isMaterials) {
+      loadSavedKits();
+      const pid = new URLSearchParams(location.search).get("p");
+      if (pid) {
+        fetch("/api/partners/" + pid).then(async res => {
+          if (!res.ok) throw new Error("партнёр не открылся");
+          fillKit(await res.json());
+        }).catch(e => { document.getElementById("saved-err").textContent = e.message; });
+      }
+      document.getElementById("p-logo").addEventListener("change", checkLogo);
+      document.getElementById("p-logo-url").addEventListener("change", checkLogo);
+    }
     const templateSelect = document.getElementById("template");
     let queueToken = sessionStorage.getItem("queueToken") || "";
 
@@ -855,6 +994,12 @@
         if (data.track_url) bits.push("ссылка: " + data.track_url);
         if (data.promo) bits.push("код " + data.promo);
         document.getElementById("p-one-track").textContent = bits.join(" · ");
+        const lw = document.getElementById("p-logo-warn");
+        if (data.logo_warn) lw.textContent = data.logo_warn;
+        const diff = document.getElementById("p-diff");
+        const dh = kitDiffHtml();
+        if (dh && loadedPartner) { diff.innerHTML = dh; diff.classList.add("on"); }
+        else { diff.classList.remove("on"); }
         preview.classList.add("on");
       } catch (ex) {
         err.textContent = ex.message;

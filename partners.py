@@ -396,7 +396,8 @@ def scan_r2_kits() -> list[dict]:
 def _partner_row(cur, pid: int) -> dict | None:
     row = cur.execute(
         "SELECT id, company, code, reg_url, notion_page_url, posting_dates_raw, "
-        "first_post_date, confirmed, created_at, notes FROM partner WHERE id=%s",
+        "first_post_date, confirmed, created_at, notes, first_name, website, logo_url, "
+        "logo_scale, poster_url, poster_square_url, poster_banner_url FROM partner WHERE id=%s",
         (pid,),
     ).fetchone()
     if not row:
@@ -413,6 +414,13 @@ def _partner_row(cur, pid: int) -> dict | None:
         "created_at": row[8].isoformat() if row[8] else "",
         "notes": row[9] or "",
         "status": "подтверждён" if row[7] else "черновик",
+        "first_name": row[10] or "",
+        "website": row[11] or "",
+        "logo_url": row[12] or "",
+        "logo_scale": row[13] or "",
+        "poster_url": row[14] or "",
+        "poster_square_url": row[15] or "",
+        "poster_banner_url": row[16] or "",
     }
 
 
@@ -1016,6 +1024,14 @@ def list_partners(q: str = "") -> list[dict]:
             row["missed"] = missed
             row["left"] = max(0, len(seq) - done)
             row["ticks"] = seq
+            miss = []
+            if not row.get("logo_url"):
+                miss.append("лого")
+            if not row.get("reg_url"):
+                miss.append("ссылка")
+            if not row.get("code"):
+                miss.append("код")
+            row["kit_missing"] = miss
             out.append(row)
         return out
 
@@ -1030,6 +1046,13 @@ def save_partner(pid: int, **fields) -> dict:
         "first_post_date",
         "notes",
         "confirmed",
+        "first_name",
+        "website",
+        "logo_url",
+        "logo_scale",
+        "poster_url",
+        "poster_square_url",
+        "poster_banner_url",
     }
     sets = []
     vals = []

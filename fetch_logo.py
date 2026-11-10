@@ -153,6 +153,96 @@ def _pick_icon(candidates: list[tuple[int, str]]) -> io.BytesIO | None:
     return best[2]
 
 
+POSTER_LOGO_PX = 160
+MIN_RASTER_PX = POSTER_LOGO_PX * 2
+SVG_RASTER_PX = 1024
+MAX_LOGO_BYTES = 8 * 1024 * 1024
+
+
+def is_svg(data: bytes, name: str = "", ctype: str = "") -> bool:
+    if "svg" in (ctype or "").lower() or (name or "").lower().endswith(".svg"):
+        return True
+    head = data.lstrip()[:400].lower()
+    return head.startswith(b"<svg") or (head.startswith(b"<?xml") and b"<svg" in head)
+
+
+def rasterize_svg(data: bytes, px: int = SVG_RASTER_PX) -> Image.Image:
+    try:
+        from svglib.svglib import svg2rlg
+        from reportlab.graphics import renderPDF
+        import pypdfium2 as pdfium
+    except ImportError as e:
+        raise ValueError("сервер не умеет SVG — загрузи PNG") from e
+    drawing = svg2rlg(io.BytesIO(data))
+    if drawing is None:
+        raise ValueError("не разобрал SVG")
+    w = float(getattr(drawing, "width", 0) or 1)
+    h = float(getattr(drawing, "height", 0) or 1)
+    scale = px / max(w, h)
+    drawing.width = w * scale
+    drawing.height = h * scale
+    drawing.scale(scale, scale)
+    pdf_bytes = renderPDF.drawToString(drawing)
+    doc = pdfium.PdfDocument(pdf_bytes)
+    try:
+        page = doc[0]
+        im = page.render(scale=2).to_pil().convert("RGBA")
+    finally:
+        doc.close()
+    if min(im.size) < 16:
+        raise ValueError("SVG получился пустым")
+    return im
+
+
+def decode_logo(data: bytes, name: str = "", ctype: str = "") -> dict:
+    if not data:
+        raise ValueError("пустой файл логотипа")
+    if len(data) > MAX_LOGO_BYTES:
+        raise ValueError("логотип больше 8 МБ")
+    svg = is_svg(data, name, ctype)
+    if svg:
+        im = rasterize_svg(data)
+    else:
+        converted = _to_png(data)
+        if converted is None:
+            raise ValueError("не открыл логотип — нужен SVG, PNG или JPG")
+        _buf, im = converted
+        im = im.convert("RGBA")
+    w, h = im.size
+    warn = ""
+    if not svg and min(w, h) < MIN_RASTER_PX:
+        warn = (
+            f"лого {w}×{h} px — на постере будет мыло. "
+            f"Нужно от {MIN_RASTER_PX} px по короткой стороне "
+            f"(2× круга {POSTER_LOGO_PX} px)."
+        )
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    buf.seek(0)
+    return {
+        "png": buf,
+        "width": w,
+        "height": h,
+        "svg": svg,
+        "warn": warn,
+    }
+
+
+def fetch_image(url: str) -> tuple[bytes, str, str]:
+    site = _normalize(url)
+    data, ctype, final = _get(site, retries=1)
+    if len(data) > MAX_LOGO_BYTES:
+        raise ValueError("логотип по URL больше 8 МБ")
+    if "html" in (ctype or "").lower() or data[:20].lstrip().lower().startswith((b"<!doctype", b"<html")):
+        raise ValueError("URL отдаёт HTML, а не картинку")
+    return data, ctype, final
+
+
+def load_from_url(url: str) -> dict:
+    data, ctype, final = fetch_image(url)
+    return decode_logo(data, final, ctype)
+
+
 def fetch_logo(url: str) -> io.BytesIO:
     site = _normalize(url)
     host = urllib.parse.urlparse(site).netloc.lower()

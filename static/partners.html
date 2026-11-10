@@ -55,7 +55,7 @@
     </div>
     <div id="err" class="err"></div>
     <table>
-      <thead><tr><th>Компания</th><th>Прогресс</th></tr></thead>
+      <thead><tr><th>Компания</th><th>Прогресс</th><th></th></tr></thead>
       <tbody id="body"></tbody>
     </table>
   </section>
@@ -121,7 +121,8 @@
           <div class="hint">${p.code || ""}</div>
         </td>
         <td>${ticksBar(p.ticks)}</td>
-      </tr>`).join("") || `<tr><td colspan="2">пусто</td></tr>`;
+        <td><a href="/materials?p=${p.id}">Редактировать</a>${(p.kit_missing||[]).length ? `<div class="hint">нет ${p.kit_missing.join(", ")}</div>` : ""}</td>
+      </tr>`).join("") || `<tr><td colspan="3">пусто</td></tr>`;
   }
   document.getElementById("btn-search").onclick = () => load().catch(e => document.getElementById("err").textContent = e.message);
   document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("btn-search").click(); });

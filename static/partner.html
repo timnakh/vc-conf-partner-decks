@@ -49,6 +49,7 @@
 <main>
   <h1 id="title">Партнёр</h1>
   <p class="hint" id="status"></p>
+  <p><a id="kit-edit" href="/materials">Редактировать материалы</a></p>
   <div id="err" class="err"></div>
   <section>
     <h2>Карточка</h2>
@@ -115,6 +116,7 @@
   function esc(v) { return String(v ?? "").replace(/[&<>"]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s])); }
   function render(p) {
     document.getElementById("title").textContent = p.company;
+    document.getElementById("kit-edit").href = "/materials?p=" + p.id;
     const ticks = (p.publications || []).map(x => x.status);
     document.getElementById("status").innerHTML =
       `<span class="badge ${p.confirmed ? "on" : ""}">${esc(p.status)}</span>` +

@@ -9,3 +9,5 @@ boto3==1.40.46
 img2pdf==0.6.1
 psycopg[binary]==3.2.9
 psycopg-pool==3.2.6
+svglib==1.5.1
+reportlab==4.4.4
