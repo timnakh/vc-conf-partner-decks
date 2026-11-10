@@ -29,8 +29,6 @@ POSTER_DIR = ROOT / "assets" / "posters"
 SPEC_PATH = POSTER_DIR / "spec.json"
 DEFAULT_URL = "https://vcconf.com/?15"
 DEFAULT_LOGO_SCALE = 0.86
-BADGE_RADIUS = 0.22
-RING_BLUE = (45, 140, 255, 255)
 INK = (11, 31, 63, 255)
 GRAD0 = (56, 163, 255)
 GRAD1 = (31, 96, 224)
@@ -211,29 +209,19 @@ def _contain_in_box(src: Image.Image, size: int) -> Image.Image:
 
 
 def _partner_badge(src: Image.Image, inner: int, logo_scale: float, *, photo: bool) -> Image.Image:
-    """Rounded square over the circular well so a square logo keeps its corners."""
-    ring = max(4, round(inner * 6 / 160))
-    outer = inner + 2 * ring
-    badge = Image.new("RGBA", (outer, outer), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(badge)
-    draw.rounded_rectangle(
-        (0, 0, outer - 1, outer - 1),
-        radius=max(8, round(outer * BADGE_RADIUS)),
-        fill=RING_BLUE,
-    )
-    draw.rounded_rectangle(
-        (ring, ring, outer - ring - 1, outer - ring - 1),
-        radius=max(6, round(inner * BADGE_RADIUS)),
-        fill=(255, 255, 255, 255),
-    )
-    slot = max(8, round(inner * clamp_logo_scale(logo_scale)))
+    """Logo only inside the template well. The ring stays the designed, anti-aliased one."""
+    aa = 4
+    hi = max(aa, inner * aa)
+    canvas = Image.new("RGBA", (hi, hi), (0, 0, 0, 0))
     if photo:
-        mark = _place_mark(src, slot, max(4, round(slot * BADGE_RADIUS)))
+        mark = _place_mark(src, hi, hi // 2)
+        canvas.paste(mark, (0, 0), mark)
     else:
+        slot = max(aa, round(inner * clamp_logo_scale(logo_scale)) * aa)
         mark = _contain_in_box(src, slot)
-    ox = (outer - slot) // 2
-    badge.paste(mark, (ox, ox), mark)
-    return badge
+        ox = (hi - slot) // 2
+        canvas.paste(mark, (ox, ox), mark)
+    return canvas.resize((inner, inner), Image.Resampling.LANCZOS)
 
 
 def _fill_kind(kind: str, name: str, shown_url: str, logo, logo_scale: float = DEFAULT_LOGO_SCALE) -> Image.Image:
@@ -247,9 +235,8 @@ def _fill_kind(kind: str, name: str, shown_url: str, logo, logo_scale: float = D
         if hasattr(logo, "seek"):
             logo.seek(0)
         src = Image.open(logo)
-        ring = max(4, round(lw * 6 / 160))
         badge = _partner_badge(src, lw, logo_scale, photo=_is_photo(src))
-        im.paste(badge, (lx - ring, ly - ring), badge)
+        im.paste(badge, (lx, ly), badge)
         draw = ImageDraw.Draw(im)
 
     name_s = spec["name"]
