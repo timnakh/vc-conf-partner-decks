@@ -8,7 +8,7 @@ import io
 import json
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from fill import (
     FONT_FILES,
@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent
 POSTER_DIR = ROOT / "assets" / "posters"
 SPEC_PATH = POSTER_DIR / "spec.json"
 DEFAULT_URL = "https://vcconf.com/?15"
-DEFAULT_LOGO_SCALE = 0.86
+DEFAULT_LOGO_SCALE = 0.70
 INK = (11, 31, 63, 255)
 GRAD0 = (56, 163, 255)
 GRAD1 = (31, 96, 224)
@@ -208,8 +208,14 @@ def _contain_in_box(src: Image.Image, size: int) -> Image.Image:
     return canvas
 
 
+def _circle_mask(size: int) -> Image.Image:
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).ellipse((1, 1, size - 2, size - 2), fill=255)
+    return mask
+
+
 def _partner_badge(src: Image.Image, inner: int, logo_scale: float, *, photo: bool) -> Image.Image:
-    """Logo only inside the template well. The ring stays the designed, anti-aliased one."""
+    """Logo clipped to the inner circle so a white square cannot cover the ring."""
     aa = 4
     hi = max(aa, inner * aa)
     canvas = Image.new("RGBA", (hi, hi), (0, 0, 0, 0))
@@ -221,6 +227,8 @@ def _partner_badge(src: Image.Image, inner: int, logo_scale: float, *, photo: bo
         mark = _contain_in_box(src, slot)
         ox = (hi - slot) // 2
         canvas.paste(mark, (ox, ox), mark)
+    _r, _g, _b, a = canvas.split()
+    canvas.putalpha(ImageChops.multiply(a, _circle_mask(hi)))
     return canvas.resize((inner, inner), Image.Resampling.LANCZOS)
 
 

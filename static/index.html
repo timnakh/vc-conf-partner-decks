@@ -331,9 +331,9 @@
         <div class="row">
           <div>
             <label for="p-logo-scale">Масштаб лого</label>
-            <input id="p-logo-scale" name="logo_scale" type="number" min="50" max="100" value="86" />
+            <input id="p-logo-scale" name="logo_scale" type="number" min="50" max="100" value="70" />
           </div>
-            <p class="note">Квадратное лого — плитка со скруглением, не круг. 86 обычно ок, 50–100.</p>
+            <p class="note">Квадрат с белым фоном — 70, иначе углы наезжают на рамку. 50–100.</p>
         </div>
         <button type="submit">Показать превью</button>
         <div class="progress" id="p-one-progress">
@@ -437,7 +437,7 @@
       document.getElementById("p-first-post").value = p.first_post_date || "";
       document.getElementById("p-website").value = p.website || "";
       document.getElementById("p-logo-url").value = p.logo_url || "";
-      let sc = p.logo_scale || "86";
+      let sc = p.logo_scale || "70";
       if (Number(sc) > 0 && Number(sc) <= 1) sc = String(Math.round(Number(sc) * 100));
       document.getElementById("p-logo-scale").value = sc;
       document.getElementById("p-confirmed").checked = !!p.confirmed;

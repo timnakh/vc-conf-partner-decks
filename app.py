@@ -797,7 +797,7 @@ async def poster_fill(
     posting_dates: str = Form(""),
     first_post_date: str = Form(""),
     confirmed: str = Form(""),
-    logo_scale: str = Form("86"),
+    logo_scale: str = Form("70"),
     url: str = Form(""),
     promo: str = Form(""),
     website: str = Form(""),
