@@ -454,7 +454,7 @@ def _log_change(cur, partner_id: int, publication_id: int | None, field: str, ol
 def _pubs(cur, pid: int) -> list[dict]:
     rows = cur.execute(
         "SELECT id, date, channel, post_number, status, needs_check, url, notes, "
-        "reminded_at, published_at, updated_at FROM publication "
+        "reminded_at, published_at, updated_at, file_url, file_name FROM publication "
         "WHERE partner_id=%s ORDER BY date, post_number, channel",
         (pid,),
     ).fetchall()
@@ -474,6 +474,8 @@ def _pubs(cur, pid: int) -> list[dict]:
                 "reminded_at": r[8].isoformat() if r[8] else "",
                 "published_at": r[9].isoformat() if r[9] else "",
                 "updated_at": r[10].isoformat() if r[10] else "",
+                "file_url": r[11] or "",
+                "file_name": r[12] or "",
                 "changes": _changes(cur, r[0]),
             }
         )
@@ -714,7 +716,8 @@ def calendar_bundle() -> dict:
         rows = cur.execute(
             "SELECT pu.id, pu.date, pu.channel, pu.post_number, pu.status, pu.needs_check, "
             "pu.url, pu.notes, pu.reminded_at, pu.published_at, "
-            "p.id, p.company, p.code, p.reg_url, p.notion_page_url, p.confirmed "
+            "p.id, p.company, p.code, p.reg_url, p.notion_page_url, p.confirmed, "
+            "pu.file_url, pu.file_name "
             "FROM publication pu JOIN partner p ON p.id = pu.partner_id "
             "ORDER BY pu.date, lower(p.company), pu.post_number"
         ).fetchall()
@@ -749,6 +752,8 @@ def calendar_bundle() -> dict:
             "notes": r[7] or "",
             "reminded_at": r[8].isoformat() if r[8] else "",
             "published_at": r[9].isoformat() if r[9] else "",
+            "file_url": r[16] or "",
+            "file_name": r[17] or "",
             "partner_id": r[10],
             "company": r[11],
             "code": r[12] or "",
@@ -781,7 +786,7 @@ def calendar_bundle() -> dict:
             buckets["remind"].append(ev)
         if d < today and st != "published":
             buckets["overdue"].append(ev)
-        if st == "published" and not (r[6] or "").strip():
+        if st == "published" and not has_proof(r[6], r[16]):
             buckets["no_url"].append(ev)
         if monday <= d <= sunday and d != today and ev["id"] not in seen_week:
             in_other = (
@@ -810,13 +815,20 @@ def calendar_bundle() -> dict:
     }
 
 
+def has_proof(url: str = "", file_url: str = "") -> bool:
+    return bool((url or "").strip() or (file_url or "").strip())
+
+
 def update_publication(pid: int, **fields) -> dict:
-    allowed = {"date", "channel", "post_number", "status", "needs_check", "url", "notes"}
+    allowed = {
+        "date", "channel", "post_number", "status", "needs_check",
+        "url", "notes", "file_url", "file_name",
+    }
     with db.connect() as conn:
         cur = conn.cursor()
         old = cur.execute(
-            "SELECT partner_id, date, channel, post_number, status, needs_check, url, notes "
-            "FROM publication WHERE id=%s",
+            "SELECT partner_id, date, channel, post_number, status, needs_check, url, notes, "
+            "file_url, file_name FROM publication WHERE id=%s",
             (pid,),
         ).fetchone()
         if not old:
@@ -829,6 +841,8 @@ def update_publication(pid: int, **fields) -> dict:
             "needs_check": old[5],
             "url": old[6],
             "notes": old[7],
+            "file_url": old[8] or "",
+            "file_name": old[9] or "",
         }
         extra: dict = {}
         if "date" in fields and fields["date"] and fields["date"] != current["date"]:
@@ -839,7 +853,10 @@ def update_publication(pid: int, **fields) -> dict:
             if note not in (notes or ""):
                 extra["notes"] = (note + (". " + notes if notes else "")).strip()
         url_in = fields.get("url", None)
-        if url_in is not None and str(url_in).strip() and fields.get("status") != "missed":
+        file_in = fields.get("file_url", None)
+        linked = url_in is not None and str(url_in).strip()
+        filed = file_in is not None and str(file_in).strip()
+        if (linked or filed) and fields.get("status") != "missed":
             extra["status"] = "published"
         fields = {**fields, **extra}
         sets = []
@@ -878,7 +895,8 @@ def get_publication(pid: int) -> dict:
         cur = conn.cursor()
         row = cur.execute(
             "SELECT pu.id, pu.date, pu.channel, pu.post_number, pu.status, pu.needs_check, "
-            "pu.url, pu.notes, p.id, p.company, p.code, p.reg_url, p.notion_page_url, p.confirmed "
+            "pu.url, pu.notes, p.id, p.company, p.code, p.reg_url, p.notion_page_url, p.confirmed, "
+            "pu.file_url, pu.file_name "
             "FROM publication pu JOIN partner p ON p.id = pu.partner_id WHERE pu.id=%s",
             (pid,),
         ).fetchone()
@@ -894,6 +912,8 @@ def get_publication(pid: int) -> dict:
             "needs_check": row[5],
             "url": row[6] or "",
             "notes": row[7] or "",
+            "file_url": row[14] or "",
+            "file_name": row[15] or "",
         }
         partner = {
             "id": row[8],
@@ -1158,6 +1178,7 @@ def diff_publications(existing: list[dict], wanted: list[dict]) -> dict:
                     "post_number": old["post_number"],
                     "status": old.get("status") or "planned",
                     "url": old.get("url") or "",
+                    "file_url": old.get("file_url") or "",
                 }
             )
     return {"added": added, "removed": removed, "changed": changed}

@@ -238,7 +238,7 @@ function renderToday() {
   }).join("");
   const closedLine = closed ? `<p class="hint">Все выходы закрыты: ${closed}</p>` : "";
   document.getElementById("today").innerHTML =
-    `<h2>Сегодня</h2>${sum}${block("Выходят сегодня", p.today)}${block("Напомнить (3 дня)", p.remind)}${block("Просрочено", p.overdue)}${block("Без ссылки", p.no_url)}<h3>Кто сколько выпустил</h3>${board || "<p class='hint'>все закрыли выходы</p>"}${closedLine}${draftLine || ""}`;
+    `<h2>Сегодня</h2>${sum}${block("Выходят сегодня", p.today)}${block("Напомнить (3 дня)", p.remind)}${block("Просрочено", p.overdue)}${block("Без ссылки и файла", p.no_url)}<h3>Кто сколько выпустил</h3>${board || "<p class='hint'>все закрыли выходы</p>"}${closedLine}${draftLine || ""}`;
 }
 function renderTl() {
   const drafts = document.getElementById("show-drafts").checked;
@@ -277,7 +277,15 @@ function fieldset(e) {
       <label>Канал</label><select class="d-ch">${["newsletter","linkedin","other"].map(c=>`<option ${c===e.channel?"selected":""}>${c}</option>`).join("")}</select>
       <label>Post</label><select class="d-n">${[1,2,3,4].map(n=>`<option ${n===e.post_number?"selected":""}>${n}</option>`).join("")}</select>
       <label>Статус</label><select class="d-st">${["planned","reminded","published","missed","rescheduled"].map(s=>`<option ${s===e.status?"selected":""}>${s}</option>`).join("")}</select>
-      <label>Ссылка на выход</label><input class="d-url" type="url" value="${esc(e.url)}" placeholder="вставь ссылку — и нажми Вышел" />
+      <label>Ссылка на выход</label><input class="d-url" type="url" value="${esc(e.url)}" placeholder="для LinkedIn — вставь ссылку" />
+      <label>Файл выхода</label>
+      <p class="hint">Для рассылки: PDF или сохранённое письмо. Файл сразу отмечает выход как вышедший.</p>
+      ${e.file_url ? `<p><a href="${esc(e.file_url)}" target="_blank" rel="noopener">${esc(e.file_name || "открыть файл")}</a></p>` : ""}
+      <div class="row">
+        <input class="d-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.eml,.html,.htm,application/pdf" />
+        <button type="button" class="ghost d-upload">Приложить</button>
+        ${e.file_url ? `<button type="button" class="ghost d-clear">Убрать файл</button>` : ""}
+      </div>
       <label>Заметки</label><textarea class="d-notes">${esc(e.notes)}</textarea>
       <div class="row">
         <button type="button" class="d-went">Вышел</button>
@@ -304,12 +312,28 @@ function bindCard(card, e) {
     try {
       await j("/api/publications/" + e.id, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
       await load();
-      openGroup(e.partner_id + "|" + payload.date);
+      openGroup(e.partner_id + "|" + (payload.date || e.date));
       card.querySelector(".d-msg").innerHTML = "<p class='ok'>" + ok + "</p>";
     } catch (err) { card.querySelector(".d-msg").innerHTML = "<p class='err'>"+esc(err.message)+"</p>"; }
   };
   card.querySelector(".d-save").onclick = () => save(payloadOf(), "сохранено");
   card.querySelector(".d-went").onclick = () => save(payloadOf("published"), "отмечен как вышел");
+  card.querySelector(".d-upload").onclick = async () => {
+    const picked = card.querySelector(".d-file").files[0];
+    if (!picked) {
+      card.querySelector(".d-msg").innerHTML = "<p class='err'>выбери файл</p>";
+      return;
+    }
+    const body = new FormData();
+    body.append("file", picked);
+    try {
+      await j("/api/publications/" + e.id + "/file", { method: "POST", body });
+      await load();
+      openGroup(e.partner_id + "|" + e.date);
+    } catch (err) { card.querySelector(".d-msg").innerHTML = "<p class='err'>"+esc(err.message)+"</p>"; }
+  };
+  const clearBtn = card.querySelector(".d-clear");
+  if (clearBtn) clearBtn.onclick = () => save({ file_url: "", file_name: "" }, "файл убран");
   card.querySelector(".d-remind").onclick = async () => {
     try {
       const data = await j("/api/publications/" + e.id + "/reminder");

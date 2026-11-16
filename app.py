@@ -244,6 +244,22 @@ class PubPatch(BaseModel):
     url: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[str] = None
+    file_url: Optional[str] = None
+    file_name: Optional[str] = None
+
+
+PROOF_TYPES = {
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".eml": "message/rfc822",
+    ".html": "text/html; charset=utf-8",
+    ".htm": "text/html; charset=utf-8",
+}
+PROOF_MAX = 20 * 1024 * 1024
 
 
 def _html(name: str) -> HTMLResponse:
@@ -1343,6 +1359,36 @@ def api_rebuild(pid: int, body: RebuildIn):
         return partners.apply_rebuild(pid, body.posting_dates_raw, body.first_post_date)
     except Exception as e:
         raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/publications/{pub_id}/file")
+async def api_pub_file(pub_id: int, file: UploadFile = File(...)):
+    name = Path(file.filename or "").name.strip()
+    ext = Path(name).suffix.lower()
+    ctype = PROOF_TYPES.get(ext)
+    if not name or not ctype:
+        raise HTTPException(400, "нужен PDF, картинка или сохранённое письмо (.eml, .html)")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(400, "пустой файл")
+    if len(raw) > PROOF_MAX:
+        raise HTTPException(400, "файл больше 20 МБ")
+    try:
+        info = partners.get_publication(pub_id)
+    except Exception as e:
+        raise HTTPException(404, str(e)) from e
+    pub = info["publication"]
+    partner = info["partner"]
+    key = store.object_key(
+        f"{partner['id']}-{pub['date']}-{pub['channel']}-p{pub['post_number']}-{name}",
+        folder="exits",
+    )
+    try:
+        url = store.put_file(key, raw, name, ctype)
+        saved = partners.update_publication(pub_id, file_url=url, file_name=name)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    return {**saved, "file_url": url, "file_name": name}
 
 
 @app.patch("/api/publications/{pub_id}")

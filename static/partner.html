@@ -141,8 +141,14 @@
           </select>
         </div>
         <div class="row">
-          <input type="url" data-f="url" value="${esc(pub.url)}" placeholder="ссылка на пост" style="flex:1;min-width:220px" />
+          <input type="url" data-f="url" value="${esc(pub.url)}" placeholder="ссылка, для LinkedIn" style="flex:1;min-width:220px" />
           <input type="text" data-f="notes" value="${esc(pub.notes)}" placeholder="заметка" style="min-width:160px" />
+        </div>
+        <div class="row">
+          <input type="file" class="pub-file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.eml,.html,.htm,application/pdf" />
+          <button type="button" class="ghost up-file">Приложить файл</button>
+          ${pub.file_url ? `<a href="${esc(pub.file_url)}" target="_blank" rel="noopener">${esc(pub.file_name || "файл")}</a>` : `<span class="hint">рассылка — PDF или письмо</span>`}
+          ${pub.file_url ? `<button type="button" class="ghost clear-file">Убрать файл</button>` : ""}
         </div>
         <div class="row">
           <button type="button" class="went mark-pub">Вышел</button>
@@ -174,7 +180,7 @@
     box.innerHTML = `
       <h2>Превью пересборки</h2>
       <p><b>Добавится</b></p>${line(diff.added, x => `<li>+ ${x.date} · ${x.channel} · Post ${x.post_number}</li>`)}
-      <p><b>Удалится</b></p>${line(diff.removed, x => `<li>− ${x.date} · ${x.channel} · Post ${x.post_number} (${x.status}${x.url ? ", есть URL" : ""})</li>`)}
+      <p><b>Удалится</b></p>${line(diff.removed, x => `<li>− ${x.date} · ${x.channel} · Post ${x.post_number} (${x.status}${x.url ? ", есть URL" : ""}${x.file_url ? ", есть файл" : ""})</li>`)}
       <p><b>Изменится дата</b></p>${line(diff.changed, x => `<li>${x.channel} Post ${x.post_number}: ${x.old_date} → ${x.new_date} (${x.status})</li>`)}
       <button type="button" id="btn-apply">Подтвердить пересборку</button>`;
     document.getElementById("btn-apply").onclick = async () => {
@@ -193,6 +199,32 @@
     if (e.target.classList.contains("del-pub")) {
       await j("/api/publications/" + id, { method:"DELETE" });
       await load();
+      return;
+    }
+    if (e.target.classList.contains("up-file")) {
+      const picked = card.querySelector(".pub-file").files[0];
+      const err = document.getElementById("err");
+      if (!picked) { err.textContent = "выбери файл"; return; }
+      const body = new FormData();
+      body.append("file", picked);
+      err.textContent = "";
+      try {
+        await j("/api/publications/" + id + "/file", { method: "POST", body });
+        await load();
+      } catch (ex) { err.textContent = ex.message; }
+      return;
+    }
+    if (e.target.classList.contains("clear-file")) {
+      const err = document.getElementById("err");
+      err.textContent = "";
+      try {
+        await j("/api/publications/" + id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ file_url: "", file_name: "" }),
+        });
+        await load();
+      } catch (ex) { err.textContent = ex.message; }
       return;
     }
     if (e.target.classList.contains("save-pub") || e.target.classList.contains("mark-pub")) {

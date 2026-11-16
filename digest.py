@@ -173,7 +173,7 @@ def build_blocks(panel: dict) -> list[tuple[str, list[dict]]]:
         ("today", "Сегодня"),
         ("remind", "Напомнить (через 3 дня)"),
         ("overdue", "Просрочено"),
-        ("no_url", "Вышли без ссылки"),
+        ("no_url", "Вышли без ссылки и файла"),
         ("week", "На этой неделе"),
     )
     out = []
