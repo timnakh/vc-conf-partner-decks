@@ -51,9 +51,10 @@
     .chip.draft { outline:2px dashed #eab308; opacity:.85; }
     .chip.warn { box-shadow: inset 0 0 0 1px #fecaca; }
     aside.drawer {
-      position:fixed; top:0; right:0; width:min(460px,100%); height:100vh; background:#fff;
+      position:fixed; top: var(--site-bar-h, 0px); right:0; width:min(460px,100%);
+      height: calc(100dvh - var(--site-bar-h, 0px)); background:#fff;
       border-left:1px solid var(--line); box-shadow:-12px 0 40px rgba(11,18,32,.12);
-      padding:20px; overflow:auto; z-index:20; display:none;
+      padding:20px; overflow:auto; z-index:30; display:none;
     }
     aside.drawer.on { display:block; }
     .scrim { position:fixed; inset:0; background:rgba(11,18,32,.25); z-index:19; display:none; }
@@ -133,6 +134,15 @@ function ticksBar(ticks) {
     : `${done}/${ticks.length} · <span class="left">осталось ${left}</span>`;
   return `<span class="prog-line"><span class="prog">${cells}</span><span class="prog-n">${label}</span></span>`;
 }
+function fitDrawer() {
+  const bar = document.querySelector(".site-bar");
+  const h = bar ? Math.ceil(bar.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty("--site-bar-h", h + "px");
+}
+fitDrawer();
+window.addEventListener("resize", fitDrawer);
+const bar = document.querySelector(".site-bar");
+if (bar && window.ResizeObserver) new ResizeObserver(fitDrawer).observe(bar);
 const CH = { newsletter:"NL", linkedin:"LI", other:"X" };
 let DATA = { events:[], today_panel:{}, timeline:[], telegram:false };
 let calendar;
