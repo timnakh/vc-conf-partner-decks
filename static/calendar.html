@@ -318,44 +318,71 @@ function bindCard(card, e) {
       notes: card.querySelector(".d-notes").value,
     };
   };
-  const save = async (payload, ok) => {
+  const save = async (payload, ok, btn) => {
     try {
+      if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = "…"; }
       await j("/api/publications/" + e.id, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
       await load();
       openGroup(e.partner_id + "|" + (payload.date || e.date));
-      card.querySelector(".d-msg").innerHTML = "<p class='ok'>" + ok + "</p>";
-    } catch (err) { card.querySelector(".d-msg").innerHTML = "<p class='err'>"+esc(err.message)+"</p>"; }
+      const fresh = document.querySelector('.pub-card[data-pid="' + e.id + '"] .d-msg');
+      if (fresh) fresh.innerHTML = "<p class='ok'>" + ok + "</p>";
+    } catch (err) {
+      if (btn && btn.dataset.label) { btn.disabled = false; btn.textContent = btn.dataset.label; }
+      const msg = card.querySelector(".d-msg");
+      if (msg) msg.innerHTML = "<p class='err'>"+esc(err.message)+"</p>";
+    }
   };
-  card.querySelector(".d-save").onclick = () => save(payloadOf(), "сохранено");
-  card.querySelector(".d-went").onclick = () => save(payloadOf("published"), "отмечен как вышел");
-  card.querySelector(".d-upload").onclick = async () => {
+  card.querySelector(".d-save").onclick = (ev) => save(payloadOf(), "Сохранено", ev.currentTarget);
+  card.querySelector(".d-went").onclick = (ev) => save(payloadOf("published"), "Отмечен как вышел", ev.currentTarget);
+  card.querySelector(".d-upload").onclick = async (ev) => {
     const picked = card.querySelector(".d-file").files[0];
     if (!picked) {
-      card.querySelector(".d-msg").innerHTML = "<p class='err'>выбери файл</p>";
+      card.querySelector(".d-msg").innerHTML = "<p class='err'>Сначала выбери файл</p>";
       return;
     }
+    const btn = ev.currentTarget;
     const body = new FormData();
     body.append("file", picked);
+    btn.disabled = true;
+    btn.dataset.label = btn.textContent;
+    btn.textContent = "Загружаю…";
     try {
       await j("/api/publications/" + e.id + "/file", { method: "POST", body });
       await load();
       openGroup(e.partner_id + "|" + e.date);
-    } catch (err) { card.querySelector(".d-msg").innerHTML = "<p class='err'>"+esc(err.message)+"</p>"; }
+      const fresh = document.querySelector('.pub-card[data-pid="' + e.id + '"] .d-msg');
+      if (fresh) fresh.innerHTML = "<p class='ok'>Файл приложен, выход отмечен</p>";
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.label || "Приложить";
+      card.querySelector(".d-msg").innerHTML = "<p class='err'>"+esc(err.message)+"</p>";
+    }
   };
   const clearBtn = card.querySelector(".d-clear");
-  if (clearBtn) clearBtn.onclick = () => save({ file_url: "", file_name: "" }, "файл убран");
-  card.querySelector(".d-remind").onclick = async () => {
+  if (clearBtn) clearBtn.onclick = (ev) => save({ file_url: "", file_name: "" }, "Файл убран", ev.currentTarget);
+  card.querySelector(".d-remind").onclick = async (ev) => {
+    const btn = ev.currentTarget;
     try {
+      btn.disabled = true;
+      btn.textContent = "…";
       const data = await j("/api/publications/" + e.id + "/reminder");
-      const box = card.querySelector(".d-copy");
-      box.hidden = false;
-      box.value = data.text;
-      box.select();
       await navigator.clipboard.writeText(data.text);
       await j("/api/publications/" + e.id, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ status:"reminded" }) });
       await load();
-      card.querySelector(".d-msg").innerHTML = "<p class='ok'>скопировано, статус reminded</p>";
-    } catch (err) { card.querySelector(".d-msg").innerHTML = "<p class='err'>"+esc(err.message)+"</p>"; }
+      openGroup(e.partner_id + "|" + e.date);
+      const freshCard = document.querySelector('.pub-card[data-pid="' + e.id + '"]');
+      if (freshCard) {
+        const box = freshCard.querySelector(".d-copy");
+        box.hidden = false;
+        box.value = data.text;
+        freshCard.querySelector(".d-msg").innerHTML = "<p class='ok'>Текст скопирован, статус — напомнили</p>";
+      }
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = "Напоминание партнёру";
+      const msg = card.querySelector(".d-msg");
+      if (msg) msg.innerHTML = "<p class='err'>"+esc(err.message)+"</p>";
+    }
   };
 }
 function openGroup(key) {

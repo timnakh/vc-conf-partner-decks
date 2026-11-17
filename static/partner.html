@@ -31,7 +31,11 @@
     .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
     .err { color:#b91c1c; }
     .ok { color:#166534; }
-    .log { font-size:12px; color:var(--muted); }
+    .log { margin-top: 8px; font-size:12px; color:var(--muted); }
+    .log summary { cursor:pointer; font-weight:600; color:var(--ink); width:max-content; }
+    .log-body { margin-top:8px; max-height:220px; overflow:auto; padding-right:4px; }
+    button:disabled { cursor:wait; }
+    .card-pub.flash { box-shadow: inset 0 0 0 2px #16a34a; }
     .badge { display:inline-block; font-size:12px; padding:2px 8px; border-radius:99px; background:#f1e4c8; }
     .badge.on { background:#dcfce7; }
     .prog-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -114,6 +118,22 @@
     return data;
   }
   function esc(v) { return String(v ?? "").replace(/[&<>"]/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s])); }
+  let flash = null;
+  function historyBlock(pub) {
+    const changes = pub.changes || [];
+    if (!changes.length) return "";
+    const lines = changes.map(c => `${esc((c.created_at || "").slice(0,16))} · ${esc(c.field)}: ${esc(c.old_value)} → ${esc(c.new_value)}`).join("<br>");
+    return `<details class="log"><summary>Посмотреть историю изменений (${changes.length})</summary><div class="log-body">${lines}</div></details>`;
+  }
+  function flashLine(pub) {
+    if (!flash || String(flash.id) !== String(pub.id)) return "";
+    return `<p class="${flash.kind === "err" ? "err" : "ok"}">${esc(flash.text)}</p>`;
+  }
+  function arm(btn, label) {
+    btn.disabled = true;
+    btn.dataset.label = btn.textContent;
+    btn.textContent = label;
+  }
   function render(p) {
     document.getElementById("title").textContent = p.company;
     document.getElementById("kit-edit").href = "/materials?p=" + p.id;
@@ -126,8 +146,9 @@
       f[name].value = p[name] || "";
     }
     const stLabel = { planned:"запланирован", reminded:"напомнили", published:"вышел", missed:"пропущен", rescheduled:"перенос" };
-    document.getElementById("pubs").innerHTML = (p.publications || []).map(pub => `
-      <div class="card-pub" data-id="${pub.id}" style="border:1px solid #f1e4c8;border-radius:12px;padding:10px;margin:8px 0;">
+    const top = flash && flash.id === "pubs" ? `<p class="${flash.kind === "err" ? "err" : "ok"}">${esc(flash.text)}</p>` : "";
+    document.getElementById("pubs").innerHTML = top + ((p.publications || []).map(pub => `
+      <div class="card-pub${flash && String(flash.id) === String(pub.id) && flash.kind !== "err" ? " flash" : ""}" data-id="${pub.id}" style="border:1px solid #f1e4c8;border-radius:12px;padding:10px;margin:8px 0;">
         <div class="row">
           <input type="date" data-f="date" value="${pub.date}" />
           <select data-f="channel">
@@ -156,8 +177,9 @@
           <button type="button" class="ghost del-pub">Удалить</button>
           ${pub.url ? `<a href="${esc(pub.url)}" target="_blank" rel="noopener">открыть пост</a>` : ""}
         </div>
-        <div class="log">${(pub.changes||[]).map(c => `${esc(c.created_at.slice(0,16))} · ${esc(c.field)}: ${esc(c.old_value)} → ${esc(c.new_value)}`).join("<br>") || "истории пока нет"}</div>
-      </div>`).join("") || "<p class='hint'>Выходов нет.</p>";
+        <div class="act-msg">${flashLine(pub)}</div>
+        ${historyBlock(pub)}
+      </div>`).join("") || "<p class='hint'>Выходов нет.</p>");
   }
   async function load() {
     render(await j("/api/partners/" + pid));
@@ -192,49 +214,63 @@
       render(p);
     };
   };
+  async function run(btn, busyLabel, okText, fn, flashId) {
+    arm(btn, busyLabel);
+    const id = flashId || btn.closest("[data-id]").dataset.id;
+    try {
+      await fn();
+      flash = { id, kind: "ok", text: okText };
+      await load();
+    } catch (ex) {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.label || btn.textContent;
+      const box = btn.closest("[data-id]") && btn.closest("[data-id]").querySelector(".act-msg");
+      if (box) box.innerHTML = `<p class="err">${esc(ex.message)}</p>`;
+      else document.getElementById("err").textContent = ex.message;
+    }
+  }
   document.getElementById("pubs").addEventListener("click", async (e) => {
     const card = e.target.closest("[data-id]");
     if (!card) return;
     const id = card.dataset.id;
-    if (e.target.classList.contains("del-pub")) {
-      await j("/api/publications/" + id, { method:"DELETE" });
-      await load();
+    const btn = e.target.closest("button");
+    if (!btn || btn.disabled) return;
+    if (btn.classList.contains("del-pub")) {
+      await run(btn, "Удаляю…", "Выход удалён", () => j("/api/publications/" + id, { method:"DELETE" }), "pubs");
       return;
     }
-    if (e.target.classList.contains("up-file")) {
+    if (btn.classList.contains("up-file")) {
       const picked = card.querySelector(".pub-file").files[0];
-      const err = document.getElementById("err");
-      if (!picked) { err.textContent = "выбери файл"; return; }
+      if (!picked) {
+        card.querySelector(".act-msg").innerHTML = "<p class='err'>Сначала выбери файл</p>";
+        return;
+      }
       const body = new FormData();
       body.append("file", picked);
-      err.textContent = "";
-      try {
-        await j("/api/publications/" + id + "/file", { method: "POST", body });
-        await load();
-      } catch (ex) { err.textContent = ex.message; }
+      await run(btn, "Загружаю…", "Файл приложен, выход отмечен", () => j("/api/publications/" + id + "/file", { method: "POST", body }));
       return;
     }
-    if (e.target.classList.contains("clear-file")) {
-      const err = document.getElementById("err");
-      err.textContent = "";
-      try {
-        await j("/api/publications/" + id, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ file_url: "", file_name: "" }),
-        });
-        await load();
-      } catch (ex) { err.textContent = ex.message; }
+    if (btn.classList.contains("clear-file")) {
+      await run(btn, "Убираю…", "Файл убран", () => j("/api/publications/" + id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_url: "", file_name: "" }),
+      }));
       return;
     }
-    if (e.target.classList.contains("save-pub") || e.target.classList.contains("mark-pub")) {
+    if (btn.classList.contains("save-pub") || btn.classList.contains("mark-pub")) {
       const payload = {};
       card.querySelectorAll("[data-f]").forEach(el => {
         payload[el.dataset.f] = el.dataset.f === "post_number" ? Number(el.value) : el.value;
       });
-      if (e.target.classList.contains("mark-pub")) payload.status = "published";
-      await j("/api/publications/" + id, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-      await load();
+      const marking = btn.classList.contains("mark-pub");
+      if (marking) payload.status = "published";
+      await run(
+        btn,
+        marking ? "Отмечаю…" : "Сохраняю…",
+        marking ? "Отмечен как вышел" : "Сохранено",
+        () => j("/api/publications/" + id, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) }),
+      );
     }
   });
   document.getElementById("add-pub").onsubmit = async (e) => {
