@@ -341,6 +341,7 @@ def fill_poster(
     confirmed: bool = True,
     logo_scale: float = DEFAULT_LOGO_SCALE,
     badge: str = "",
+    title: str = "",
 ) -> dict:
     name = display_name(company) or (company or "").strip()
     if not name:
@@ -350,13 +351,13 @@ def fill_poster(
     shown_url = print_url(entered)
     code = (promo or "").strip().upper()
     scale = clamp_logo_scale(logo_scale)
-    portrait = _fill_kind("portrait", name, shown_url, logo, scale, badge)
+    portrait = _fill_kind("portrait", (title or "").strip() or name, shown_url, logo, scale, badge)
     if logo is not None and hasattr(logo, "seek"):
         logo.seek(0)
-    square = _fill_kind("square", name, shown_url, logo, scale, badge)
+    square = _fill_kind("square", (title or "").strip() or name, shown_url, logo, scale, badge)
     if logo is not None and hasattr(logo, "seek"):
         logo.seek(0)
-    banner = _fill_kind("banner", name, shown_url, logo, scale, badge)
+    banner = _fill_kind("banner", (title or "").strip() or name, shown_url, logo, scale, badge)
     meta = {
         "company": name,
         "url": final_url,

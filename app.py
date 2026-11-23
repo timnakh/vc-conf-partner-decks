@@ -895,7 +895,11 @@ async def poster_fill(
             stored_logo = ""
     image = None
     logo_info: dict = {}
-    chosen = logo if (logo is not None and logo.filename) else photo
+    speaker_mode = materials.as_confirmed(is_speaker) and bool((speaker_name or "").strip())
+    if speaker_mode and photo is not None and photo.filename:
+        chosen = photo
+    else:
+        chosen = logo if (logo is not None and logo.filename) else photo
     file_bytes = None
     filename = ""
     ctype = ""
@@ -932,7 +936,8 @@ async def poster_fill(
             first_post_date=first_post_date,
             confirmed=materials.as_confirmed(confirmed),
             logo_scale=logo_scale,
-            badge="Speaker" if materials.as_confirmed(is_speaker) else "",
+            badge=(f"Speaker · {person}" if speaker_mode else ("Speaker" if materials.as_confirmed(is_speaker) else "")),
+            title=(speaker_name or "").strip() if speaker_mode else "",
         )
         _busy_progress(1, 1)
     except Exception as e:
@@ -1631,6 +1636,7 @@ class AgentKitIn(BaseModel):
     speaker_name: str = ""
     speaker_role: str = ""
     speaker_topic: str = ""
+    photo_url: str = ""
     partner_id: int = 0
 
 
@@ -1660,7 +1666,7 @@ async def api_agent_kit(body: AgentKitIn):
         url=body.reg_url,
         promo=body.code,
         website=body.website,
-        logo_url=body.logo_url,
+        logo_url=(body.photo_url if body.is_speaker and body.photo_url else body.logo_url),
         partner_id=str(body.partner_id or ""),
         logo=None,
         photo=None,

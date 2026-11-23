@@ -10,7 +10,7 @@ POST /api/agent/kit (JSON)
 - first_name (contact first name for the greeting)
 - posting_dates (free text with all dates, e.g. "Nov 25 LinkedIn, Dec 15 email, Jan 11 LinkedIn, Jan 18 email"); first_post_date ("Nov 25")
 - confirmed (bool, default true)
-- is_speaker, speaker_name, speaker_role, speaker_topic (speaker-partner variant)
+- is_speaker, speaker_name, speaker_role, speaker_topic, photo_url (speaker-partner variant: posters show the speaker photo + name, pill "Speaker · Company"; to upload a photo file use POST /poster/fill with photo=@file, then POST /poster/{id}/materials)
 - partner_id (int, optional: update an existing partner instead of matching by company+code)
 Returns: title, markdown (page copy), notion_url / html_url (materials page), poster_url, poster_square_url, poster_banner_url, partner_id, partner_conflict, notion_error, logo_warn.
 Calling it again for the same company+code updates the same page.
