@@ -27,10 +27,11 @@ def as_confirmed(value) -> bool:
     return str(value or "").strip().lower() in ("1", "true", "yes", "y", "on", "confirmed", "да")
 
 
-def welcome_line(company: str, confirmed: bool) -> str:
+def welcome_line(company: str, confirmed: bool, is_speaker: bool = False) -> str:
     partner = (company or "").strip() or "partner"
     if confirmed:
-        return f"Great to have {partner} on board as a media partner!"
+        role = "a speaker and media partner" if is_speaker else "a media partner"
+        return f"Great to have {partner} on board as {role}!"
     return (
         f"Here's how a {partner} × Virtual VC Conf partnership would look, "
         "with everything ready to use."
@@ -86,7 +87,7 @@ def _ctx(
         "poster_banner_url": poster_banner_url or "",
         "first_name": (first_name or "").strip(),
         "confirmed": ok,
-        "welcome": welcome_line(partner, ok),
+        "welcome": welcome_line(partner, ok, as_confirmed(is_speaker)),
         "is_speaker": as_confirmed(is_speaker),
         "speaker_name": (speaker_name or "").strip(),
         "speaker_role": (speaker_role or "").strip(),
@@ -127,17 +128,21 @@ def kit_fields(source: dict) -> dict:
 def _partner_speaker_line(c: dict) -> str:
     if not c.get("is_speaker"):
         return ""
-    return (
-        f"{c.get('speaker_name') or ''}, {c.get('speaker_role') or ''} at {c['partner']}, "
-        f"speaks on the main stage on Jan 27 about {c.get('speaker_topic') or ''}."
-    )
+    name = (c.get("speaker_name") or "").strip()
+    role = (c.get("speaker_role") or "").strip()
+    topic = (c.get("speaker_topic") or "").strip()
+    who = f"{name} ({role})" if name and role else (name or c["partner"])
+    if topic:
+        return f"{who} speaks at Virtual VC Conf on Jan 27: \u201c{topic}\u201d."
+    return f"{who} speaks at Virtual VC Conf on Jan 27."
 
 
 def _li(c: dict, text: str) -> str:
     if not c.get("is_speaker"):
         return text
-    topic = c.get("speaker_topic") or ""
-    return f"On Jan 27, I'm speaking at Virtual VC Conf about {topic}.\n\n" + text
+    topic = (c.get("speaker_topic") or "").strip()
+    line = f"On Jan 27, I'm speaking at Virtual VC Conf: \u201c{topic}\u201d." if topic else "On Jan 27, I'm speaking at Virtual VC Conf."
+    return line + "\n\n" + text
 
 
 def _blocks(*parts: str) -> str:

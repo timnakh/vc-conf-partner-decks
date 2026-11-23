@@ -932,6 +932,7 @@ async def poster_fill(
             first_post_date=first_post_date,
             confirmed=materials.as_confirmed(confirmed),
             logo_scale=logo_scale,
+            badge="Speaker" if materials.as_confirmed(is_speaker) else "",
         )
         _busy_progress(1, 1)
     except Exception as e:

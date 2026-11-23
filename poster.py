@@ -232,9 +232,50 @@ def _partner_badge(src: Image.Image, inner: int, logo_scale: float, *, photo: bo
     return canvas.resize((inner, inner), Image.Resampling.LANCZOS)
 
 
-def _fill_kind(kind: str, name: str, shown_url: str, logo, logo_scale: float = DEFAULT_LOGO_SCALE) -> Image.Image:
+# "Media Partner" pill baked into the base images: outer box, dot box, text box (measured).
+PILLS = {
+    "portrait": {"box": (261, 348, 507, 399), "dot": (278, 367, 291, 380), "text": (306, 364, 480, 383), "ink": (16, 36, 67)},
+    "square": {"box": (222, 305, 438, 350), "dot": (237, 322, 248, 333), "text": (261, 319, 415, 335), "ink": (22, 41, 72)},
+    "banner": {"box": (149, 407, 312, 436), "dot": (162, 417, 171, 426), "text": (181, 415, 295, 427), "ink": (11, 31, 63)},
+}
+PILL_BORDER = (217, 230, 247)
+
+
+def _relabel_pill(im: Image.Image, kind: str, label: str) -> None:
+    """Redraw the baked "Media Partner" pill with another label (e.g. Speaker)."""
+    pill = PILLS.get(kind)
+    if not pill or not label:
+        return
+    x0, y0, x1, y1 = pill["box"]
+    dx0, dy0, dx1, dy1 = pill["dot"]
+    tx0, ty0, tx1, ty1 = pill["text"]
+    dot = im.crop((dx0 - 1, dy0 - 1, dx1 + 2, dy1 + 2))
+    ref = _font("bold", 40)
+    rb = _DUMMY.textbbox((0, 0), "Media Partner", font=ref)
+    px = max(8, round(40 * (tx1 - tx0 + 1) / max(1, rb[2] - rb[0])))
+    font = _font("bold", px)
+    bb = _DUMMY.textbbox((0, 0), label, font=font)
+    tw = bb[2] - bb[0]
+    pad_r = x1 - tx1
+    nx1 = tx0 + tw + pad_r
+    # background under the old pill: copy the row just below it, column by column
+    below = min(im.height - 1, y1 + 4)
+    row = im.crop((x0 - 2, below, x1 + 3, below + 1))
+    im.paste(row.resize((x1 - x0 + 5, y1 - y0 + 5)), (x0 - 2, y0 - 2))
+    draw = ImageDraw.Draw(im)
+    r = (y1 - y0) // 2
+    draw.rounded_rectangle((x0, y0, nx1, y1), radius=r, fill=(255, 255, 255), outline=PILL_BORDER, width=2)
+    im.paste(dot, (dx0 - 1, dy0 - 1))
+    draw.text((tx0 - bb[0], ty0 - bb[1]), label, font=font, fill=pill["ink"])
+
+
+def _fill_kind(kind: str, name: str, shown_url: str, logo, logo_scale: float = DEFAULT_LOGO_SCALE, badge: str = "") -> Image.Image:
     spec = _spec()[kind]
     im = _base(kind).copy()
+    if badge:
+        if im.mode != "RGBA":
+            im = im.convert("RGBA")
+        _relabel_pill(im, kind, badge)
     draw = ImageDraw.Draw(im)
 
     logo_s = spec["logo"]
@@ -299,6 +340,7 @@ def fill_poster(
     first_post_date: str = "",
     confirmed: bool = True,
     logo_scale: float = DEFAULT_LOGO_SCALE,
+    badge: str = "",
 ) -> dict:
     name = display_name(company) or (company or "").strip()
     if not name:
@@ -308,13 +350,13 @@ def fill_poster(
     shown_url = print_url(entered)
     code = (promo or "").strip().upper()
     scale = clamp_logo_scale(logo_scale)
-    portrait = _fill_kind("portrait", name, shown_url, logo, scale)
+    portrait = _fill_kind("portrait", name, shown_url, logo, scale, badge)
     if logo is not None and hasattr(logo, "seek"):
         logo.seek(0)
-    square = _fill_kind("square", name, shown_url, logo, scale)
+    square = _fill_kind("square", name, shown_url, logo, scale, badge)
     if logo is not None and hasattr(logo, "seek"):
         logo.seek(0)
-    banner = _fill_kind("banner", name, shown_url, logo, scale)
+    banner = _fill_kind("banner", name, shown_url, logo, scale, badge)
     meta = {
         "company": name,
         "url": final_url,
@@ -324,7 +366,7 @@ def fill_poster(
         "first_post_date": (first_post_date or "").strip(),
         "confirmed": bool(confirmed),
         "logo_scale": scale,
-        "kind": "media-partner",
+        "kind": "speaker" if badge else "media-partner",
     }
     return {
         "portrait": _png(portrait),
