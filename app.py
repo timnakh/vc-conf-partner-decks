@@ -67,6 +67,7 @@ ADMIN_PATHS = (
     "/api/publications",
     "/api/import",
     "/api/db",
+    "/api/agent",
 )
 
 
@@ -82,6 +83,10 @@ async def admin_basic_auth(request: Request, call_next):
     if not password:
         return await call_next(request)
     header = request.headers.get("authorization") or ""
+    agent_token = os.environ.get("AGENT_TOKEN", "").strip()
+    if agent_token and header.lower().startswith("bearer "):
+        if secrets.compare_digest(header.split(" ", 1)[1].strip(), agent_token):
+            return await call_next(request)
     user, pw = "", ""
     if header.lower().startswith("basic "):
         try:
@@ -1603,6 +1608,69 @@ def cron_digest(key: str = ""):
         return digest.cron_send()
     except Exception as e:
         raise HTTPException(400, str(e)) from e
+
+
+# ---------------------------------------------------------------------------
+# Agent API: one-call partner kits for an AI assistant (Bearer AGENT_TOKEN).
+# ---------------------------------------------------------------------------
+
+
+class AgentKitIn(BaseModel):
+    company: str
+    code: str = ""
+    reg_url: str = ""
+    website: str = ""
+    logo_url: str = ""
+    logo_scale: str = "70"
+    first_name: str = ""
+    posting_dates: str = ""
+    first_post_date: str = ""
+    confirmed: bool = True
+    is_speaker: bool = False
+    speaker_name: str = ""
+    speaker_role: str = ""
+    speaker_topic: str = ""
+    partner_id: int = 0
+
+
+@app.get("/api/agent/guide")
+def api_agent_guide():
+    path = Path(__file__).with_name("AGENT_API.md")
+    return Response(path.read_text(encoding="utf-8") if path.exists() else "", media_type="text/markdown")
+
+
+@app.post("/api/agent/kit")
+async def api_agent_kit(body: AgentKitIn):
+    """Build posters + materials page for a partner in one call (create or update)."""
+    import json as _json
+
+    filled = await poster_fill(
+        company=body.company,
+        name="",
+        first_name=body.first_name,
+        posting_dates=body.posting_dates,
+        first_post_date=body.first_post_date,
+        confirmed="1" if body.confirmed else "",
+        is_speaker="1" if body.is_speaker else "",
+        speaker_name=body.speaker_name,
+        speaker_role=body.speaker_role,
+        speaker_topic=body.speaker_topic,
+        logo_scale=body.logo_scale,
+        url=body.reg_url,
+        promo=body.code,
+        website=body.website,
+        logo_url=body.logo_url,
+        partner_id=str(body.partner_id or ""),
+        logo=None,
+        photo=None,
+        filename_pattern="",
+    )
+    fill = _json.loads(filled.body)
+    result = poster_materials(fill["id"])
+    out = _json.loads(result.body)
+    out["logo_warn"] = fill.get("logo_warn") or ""
+    out["fill_id"] = fill["id"]
+    return out
 
 
 @app.get("/health")
