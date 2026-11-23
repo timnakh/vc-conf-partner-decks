@@ -68,10 +68,22 @@
       <p><label>First post (необяз.)</label><input name="first_post_date" /></p>
       <p><label>Заметки</label><textarea name="notes" rows="3" placeholder="Договорились на следующую неделю…"></textarea></p>
       <div class="row">
+        <label style="display:flex;gap:8px;align-items:center;margin:0;">
+          <input id="is-speaker" name="is_speaker" type="checkbox" value="on" />
+          партнёр выступает
+        </label>
+      </div>
+      <div class="grid">
+        <div><label>Имя спикера</label><input name="speaker_name" placeholder="Alex Kim" /></div>
+        <div><label>Должность</label><input name="speaker_role" placeholder="General Partner" /></div>
+      </div>
+      <p><label>Тема выступления</label><input name="speaker_topic" placeholder="how angels pick a first check" /></p>
+      <div class="row">
         <button type="submit">Сохранить карточку</button>
         <button type="button" class="ghost" id="btn-preview">Пересобрать выходы из текста</button>
+        <button type="button" class="ghost" id="btn-refresh-copy">Обновить тексты</button>
       </div>
-      <p class="hint">Сохранение карточки не меняет выходы. Пересборка — отдельной кнопкой.</p>
+      <p class="hint">Сохранение карточки не меняет выходы. Пересборка дат — отдельной кнопкой. «Обновить тексты» переписывает только страницу с материалами, постеры не трогает.</p>
       <div id="save-ok" class="ok"></div>
     </form>
     <div id="preview"></div>
@@ -142,9 +154,10 @@
       `<span class="badge ${p.confirmed ? "on" : ""}">${esc(p.status)}</span>` +
       `<div style="margin-top:8px">${ticksBar(ticks)}</div>`;
     const f = document.getElementById("card");
-    for (const name of ["company","code","reg_url","notion_page_url","posting_dates_raw","first_post_date","notes"]) {
+    for (const name of ["company","code","reg_url","notion_page_url","posting_dates_raw","first_post_date","notes","speaker_name","speaker_role","speaker_topic"]) {
       f[name].value = p[name] || "";
     }
+    document.getElementById("is-speaker").checked = !!p.is_speaker;
     const stLabel = { planned:"запланирован", reminded:"напомнили", published:"вышел", missed:"пропущен", rescheduled:"перенос" };
     const top = flash && flash.id === "pubs" ? `<p class="${flash.kind === "err" ? "err" : "ok"}">${esc(flash.text)}</p>` : "";
     document.getElementById("pubs").innerHTML = top + ((p.publications || []).map(pub => `
@@ -188,8 +201,46 @@
     e.preventDefault();
     document.getElementById("save-ok").textContent = "";
     const body = Object.fromEntries(new FormData(e.target).entries());
+    body.is_speaker = document.getElementById("is-speaker").checked;
     render(await j("/api/partners/" + pid, { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) }));
     document.getElementById("save-ok").textContent = "Карточка сохранена, выходы не пересобирались.";
+  };
+  document.getElementById("btn-refresh-copy").onclick = async () => {
+    const btn = document.getElementById("btn-refresh-copy");
+    const f = document.getElementById("card");
+    const ok = document.getElementById("save-ok");
+    const err = document.getElementById("err");
+    ok.textContent = "";
+    err.textContent = "";
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = "Обновляю…";
+    try {
+      const data = await j("/api/partners/" + pid + "/refresh-copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: f.company.value,
+          code: f.code.value,
+          reg_url: f.reg_url.value,
+          posting_dates_raw: f.posting_dates_raw.value,
+          first_post_date: f.first_post_date.value,
+          is_speaker: document.getElementById("is-speaker").checked,
+          speaker_name: f.speaker_name.value,
+          speaker_role: f.speaker_role.value,
+          speaker_topic: f.speaker_topic.value,
+        }),
+      });
+      if (data.partner) render(data.partner);
+      ok.textContent = data.html_url
+        ? "Тексты обновлены. Новая страница: " + data.html_url
+        : (data.hint || "Тексты собраны, ссылку сохранить некуда.");
+    } catch (ex) {
+      err.textContent = ex.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
   };
   document.getElementById("btn-preview").onclick = async () => {
     const f = document.getElementById("card");

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from fill import SAFE_NAME, ascii_filename
 
@@ -50,7 +50,16 @@ def public_url(key: str) -> str:
     return public_base() + "/" + quote(key, safe="/-._~")
 
 
-def put_file(key: str, data: bytes, filename: str, content_type: str) -> str:
+def key_from_public_url(url: str) -> str:
+    base = public_base()
+    text = (url or "").split("?", 1)[0].strip()
+    prefix = base + "/"
+    if not base or not text.startswith(prefix):
+        return ""
+    return unquote(text[len(prefix):])
+
+
+def _put_object(key: str, data: bytes, filename: str, content_type: str, cache: str) -> str:
     if not configured():
         raise RuntimeError(MISSING)
     import boto3
@@ -65,7 +74,6 @@ def put_file(key: str, data: bytes, filename: str, content_type: str) -> str:
         region_name=os.environ.get("S3_REGION") or "auto",
         config=Config(signature_version="s3v4"),
     )
-    key = versioned_key(key, data)
     client.put_object(
         Bucket=os.environ["S3_BUCKET"].strip(),
         Key=key,
@@ -75,9 +83,27 @@ def put_file(key: str, data: bytes, filename: str, content_type: str) -> str:
             f'inline; filename="{ascii_name}"; '
             f"filename*=UTF-8''{quote(filename)}"
         ),
-        CacheControl="public, max-age=31536000, immutable",
+        CacheControl=cache,
     )
     return public_url(key)
+
+
+def put_file(key: str, data: bytes, filename: str, content_type: str) -> str:
+    return _put_object(
+        versioned_key(key, data),
+        data,
+        filename,
+        content_type,
+        "public, max-age=31536000, immutable",
+    )
+
+
+def replace_html(url: str, data: bytes, filename: str) -> str:
+    """Write new HTML over the kit the partner already has. Same link."""
+    key = key_from_public_url(url)
+    if not key.lower().endswith(".html"):
+        return ""
+    return _put_object(key, data, filename, "text/html; charset=utf-8", "no-cache")
 
 
 def put_pdf(key: str, data: bytes, filename: str) -> str:

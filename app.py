@@ -217,6 +217,24 @@ class PartnerPatch(BaseModel):
     poster_url: Optional[str] = None
     poster_square_url: Optional[str] = None
     poster_banner_url: Optional[str] = None
+    is_speaker: Optional[bool] = None
+    speaker_name: Optional[str] = None
+    speaker_role: Optional[str] = None
+    speaker_topic: Optional[str] = None
+
+
+class RefreshCopyIn(BaseModel):
+    company: Optional[str] = None
+    code: Optional[str] = None
+    reg_url: Optional[str] = None
+    posting_dates_raw: Optional[str] = None
+    first_post_date: Optional[str] = None
+    first_name: Optional[str] = None
+    confirmed: Optional[bool] = None
+    is_speaker: Optional[bool] = None
+    speaker_name: Optional[str] = None
+    speaker_role: Optional[str] = None
+    speaker_topic: Optional[str] = None
 
 
 class PubCreate(BaseModel):
@@ -560,6 +578,12 @@ def poster_materials(fill_id: str, update_partner: bool = False):
     posting_dates = meta.get("posting_dates") or ""
     first_post_date = meta.get("first_post_date") or ""
     kit_ok = bool(meta.get("confirmed")) if "confirmed" in meta else True
+    speaker_kw = {
+        "is_speaker": bool(meta.get("is_speaker")),
+        "speaker_name": meta.get("speaker_name") or "",
+        "speaker_role": meta.get("speaker_role") or "",
+        "speaker_topic": meta.get("speaker_topic") or "",
+    }
     if not store.configured():
         md = materials.markdown(
             company=company,
@@ -572,6 +596,7 @@ def poster_materials(fill_id: str, update_partner: bool = False):
             posting_dates=posting_dates,
             first_post_date=first_post_date,
             confirmed=kit_ok,
+            **speaker_kw,
         )
         return JSONResponse(
             {
@@ -625,11 +650,23 @@ def poster_materials(fill_id: str, update_partner: bool = False):
             posting_dates=posting_dates,
             first_post_date=first_post_date,
             confirmed=kit_ok,
+            **speaker_kw,
         )
         html_name = f"{company} — materials.html"
-        html_url = store.put_file(
+        html_bytes = html.encode("utf-8")
+        known_id = int(item.get("partner_id") or 0)
+        existing_kit = ""
+        if db.configured():
+            try:
+                row = partners.get_partner(known_id) if known_id else partners.find_partner(company, promo)
+            except Exception:
+                row = None
+            if row:
+                known_id = int(row["id"])
+                existing_kit = row.get("notion_page_url") or ""
+        html_url = store.replace_html(existing_kit, html_bytes, html_name) or store.put_file(
             store.object_key(html_name, "poster-mp"),
-            html.encode("utf-8"),
+            html_bytes,
             html_name,
             "text/html",
         )
@@ -644,6 +681,7 @@ def poster_materials(fill_id: str, update_partner: bool = False):
             posting_dates=posting_dates,
             first_post_date=first_post_date,
             confirmed=kit_ok,
+            **speaker_kw,
         )
         stored_logo = (item.get("meta") or {}).get("logo_url") or ""
         if item.get("logo_png") and store.configured():
@@ -658,33 +696,43 @@ def poster_materials(fill_id: str, update_partner: bool = False):
                 pass
         notion_url = ""
         notion_error = ""
-        if notionmod.configured():
+        kit_link = html_url
+        page_kw = dict(
+            company=company,
+            track_url=track,
+            promo=promo,
+            poster_url=poster_url,
+            poster_square_url=poster_square_url,
+            poster_banner_url=poster_banner_url,
+            first_name=first_name,
+            posting_dates=posting_dates,
+            first_post_date=first_post_date,
+            confirmed=kit_ok,
+            **speaker_kw,
+        )
+        if notionmod.is_notion_url(existing_kit):
             try:
-                notion_url = notionmod.create_mp_page(
-                    company=company,
-                    track_url=track,
-                    promo=promo,
-                    poster_url=poster_url,
-                    poster_square_url=poster_square_url,
-                    poster_banner_url=poster_banner_url,
-                    first_name=first_name,
-                    posting_dates=posting_dates,
-                    first_post_date=first_post_date,
-                    confirmed=kit_ok,
-                )
+                notion_url = notionmod.replace_mp_page(existing_kit, **page_kw)
+                kit_link = existing_kit
+            except Exception as e:
+                notion_error = str(e)
+        elif not existing_kit and notionmod.configured():
+            try:
+                notion_url = notionmod.create_mp_page(**page_kw)
+                kit_link = html_url or notion_url
             except Exception as e:
                 notion_error = str(e)
         partner_conflict = False
-        partner_id = 0
+        partner_id = known_id
         if db.configured():
             try:
-                partner_id = int(item.get("partner_id") or 0)
+                partner_id = known_id
                 if not partner_id:
                     saved = partners.create_or_conflict(
                         company=company,
                         code=promo,
                         reg_url=track,
-                        notion_page_url=html_url or notion_url,
+                        notion_page_url=kit_link,
                         posting_dates_raw=posting_dates,
                         first_post_date=first_post_date,
                         confirmed=True,
@@ -706,7 +754,7 @@ def poster_materials(fill_id: str, update_partner: bool = False):
                         company=company,
                         code=promo,
                         reg_url=track,
-                        notion_page_url=html_url or notion_url,
+                        notion_page_url=kit_link,
                         posting_dates_raw=posting_dates,
                         first_post_date=first_post_date,
                         confirmed=kit_ok,
@@ -717,6 +765,7 @@ def poster_materials(fill_id: str, update_partner: bool = False):
                         poster_url=poster_url,
                         poster_square_url=poster_square_url,
                         poster_banner_url=poster_banner_url,
+                        **speaker_kw,
                     )
             except Exception as e:
                 notion_error = (notion_error + " | " if notion_error else "") + f"БД: {e}"
@@ -813,6 +862,10 @@ async def poster_fill(
     posting_dates: str = Form(""),
     first_post_date: str = Form(""),
     confirmed: str = Form(""),
+    is_speaker: str = Form(""),
+    speaker_name: str = Form(""),
+    speaker_role: str = Form(""),
+    speaker_topic: str = Form(""),
     logo_scale: str = Form("70"),
     url: str = Form(""),
     promo: str = Form(""),
@@ -890,6 +943,10 @@ async def poster_fill(
         logo_png = logo_info["png"].getvalue()
     filled["meta"]["website"] = (website or "").strip()
     filled["meta"]["logo_url"] = (logo_url or stored_logo or "").strip()
+    filled["meta"]["is_speaker"] = materials.as_confirmed(is_speaker)
+    filled["meta"]["speaker_name"] = (speaker_name or "").strip()
+    filled["meta"]["speaker_role"] = (speaker_role or "").strip()
+    filled["meta"]["speaker_topic"] = (speaker_topic or "").strip()
     FILLS[fill_id] = {
         "pdf": filled["portrait"],
         "filename": zip_name,
@@ -1359,6 +1416,58 @@ def api_rebuild(pid: int, body: RebuildIn):
         return partners.apply_rebuild(pid, body.posting_dates_raw, body.first_post_date)
     except Exception as e:
         raise HTTPException(400, str(e)) from e
+
+
+@app.post("/api/partners/{pid}/refresh-copy")
+def api_refresh_copy(pid: int, body: RefreshCopyIn | None = None):
+    """Rewrite one partner's materials page. Posters and publications stay."""
+    fields = body.model_dump(exclude_none=True) if body else {}
+    try:
+        if fields:
+            partners.save_partner(pid, **fields)
+        partner = partners.get_partner(pid)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    page_fields = materials.kit_fields(partner)
+    md = materials.markdown(**page_fields)
+    if not store.configured():
+        return {
+            "title": materials.page_title(partner["company"]),
+            "markdown": md,
+            "html_url": "",
+            "partner": partner,
+            "hint": store.MISSING,
+        }
+    token = _busy_acquire("share", 1)
+    if not token:
+        raise HTTPException(409, _busy_snapshot()["message"])
+    try:
+        html = materials.html_page(**page_fields)
+        html_name = f"{partner['company']} — materials.html"
+        html_bytes = html.encode("utf-8")
+        existing = partner.get("notion_page_url") or ""
+        if notionmod.is_notion_url(existing):
+            notionmod.replace_mp_page(existing, **page_fields)
+            html_url = existing
+            saved = partner
+        else:
+            html_url = store.replace_html(existing, html_bytes, html_name) or store.put_file(
+                store.object_key(html_name, "poster-mp"),
+                html_bytes,
+                html_name,
+                "text/html",
+            )
+            saved = partners.save_partner(pid, notion_page_url=html_url)
+    except Exception as e:
+        raise HTTPException(400, str(e)) from e
+    finally:
+        _busy_release(token)
+    return {
+        "title": materials.page_title(saved["company"]),
+        "markdown": md,
+        "html_url": html_url,
+        "partner": saved,
+    }
 
 
 @app.post("/api/publications/{pub_id}/file")

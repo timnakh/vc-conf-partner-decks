@@ -5,11 +5,18 @@ from __future__ import annotations
 import html as html_lib
 from urllib.parse import quote
 
+import speakers
+
 DEFAULT_DATES = (
     "3–4 posts (newsletter + LinkedIn): by Nov 20, early Dec, early Jan, "
     "Jan 19–22. Posting Mon–Fri 9–11 am EST"
 )
 BANNER_HINT = "Add the banner here and link it to your link."
+VOICE_HINT = (
+    "Feel free to adapt the copy to your voice. Just keep your link and your code: "
+    "that's how we see the registrations from your audience."
+)
+POSTER_NOTE = "Attach the square poster."
 POST1_LATEST = "by Nov 20"
 
 
@@ -45,6 +52,10 @@ def _ctx(
     posting_dates: str = "",
     first_post_date: str = "",
     confirmed: bool = True,
+    is_speaker: bool = False,
+    speaker_name: str = "",
+    speaker_role: str = "",
+    speaker_topic: str = "",
     **_extra,
 ) -> dict:
     partner = (company or "").strip() or "partner"
@@ -70,7 +81,61 @@ def _ctx(
         "first_name": (first_name or "").strip(),
         "confirmed": ok,
         "welcome": welcome_line(partner, ok),
+        "is_speaker": as_confirmed(is_speaker),
+        "speaker_name": (speaker_name or "").strip(),
+        "speaker_role": (speaker_role or "").strip(),
+        "speaker_topic": (speaker_topic or "").strip(),
     }
+
+
+def kit_fields(source: dict) -> dict:
+    """Normalize a partner row or poster meta dict for the page builders."""
+    if "confirmed" in source and source["confirmed"] is not None:
+        confirmed = source["confirmed"]
+    else:
+        confirmed = True
+    posting = source.get("posting_dates")
+    if posting is None:
+        posting = source.get("posting_dates_raw") or ""
+    promo = source.get("promo")
+    if promo is None or promo == "":
+        promo = source.get("code") or ""
+    return {
+        "company": source.get("company") or "",
+        "track_url": source.get("track_url") or source.get("reg_url") or source.get("url") or "",
+        "promo": promo,
+        "poster_url": source.get("poster_url") or "",
+        "poster_square_url": source.get("poster_square_url") or "",
+        "poster_banner_url": source.get("poster_banner_url") or "",
+        "first_name": source.get("first_name") or "",
+        "posting_dates": posting or "",
+        "first_post_date": source.get("first_post_date") or "",
+        "confirmed": confirmed,
+        "is_speaker": source.get("is_speaker") or False,
+        "speaker_name": source.get("speaker_name") or "",
+        "speaker_role": source.get("speaker_role") or "",
+        "speaker_topic": source.get("speaker_topic") or "",
+    }
+
+
+def _partner_speaker_line(c: dict) -> str:
+    if not c.get("is_speaker"):
+        return ""
+    return (
+        f"{c.get('speaker_name') or ''}, {c.get('speaker_role') or ''} at {c['partner']}, "
+        f"speaks on the main stage on Jan 27 about {c.get('speaker_topic') or ''}."
+    )
+
+
+def _li(c: dict, text: str) -> str:
+    if not c.get("is_speaker"):
+        return text
+    topic = c.get("speaker_topic") or ""
+    return f"On Jan 27, I'm speaking at Virtual VC Conf about {topic}.\n\n" + text
+
+
+def _blocks(*parts: str) -> str:
+    return "\n\n".join(part for part in parts if part)
 
 
 def _post1_labels(first_post_date: str) -> tuple[str, str]:
@@ -107,53 +172,64 @@ def _code_plain(short: str) -> str:
 def copies(c: dict) -> list[dict]:
     p, code, link = c["partner"], c["code"], c["link"]
     li = c["code_url"]
+    who = _partner_speaker_line(c)
+    p1 = speakers.for_post(1, "names")
+    p1f = speakers.for_post(1, "funds")
+    p2 = speakers.for_post(2, "names")
+    p2f = speakers.for_post(2, "funds")
+    p3 = speakers.for_post(3, "stage")
+    p3f = speakers.for_post(3, "funds")
+    p4 = speakers.for_post(4, "stage")
+    p4f = speakers.for_post(4, "funds")
     return [
         {
             "title": "Post 1: Announcement",
             "when": c["post1_when"],
-            "kicker": "ON JAN 27–29",
-            "headline": "Virtual VC Conf 2027 is coming up!",
-            "newsletter": (
-                f"{p} is partnering with Virtual VC Conf: three days online with 1,000+ VCs, angels, family offices, LPs and startups.\n\n"
-                "- **Attend for free** and watch Day 1 panels with top VCs.\n"
-                "- **Get a pass with 1:1 pitch calls** if you want to pitch matched investors on Day 2.\n"
-                "- **Investors get a free 3-day pass** for committing to 15 founder pitches on Day 2.\n\n"
-                "Day 1: VC panels + 25+ breakout rooms. Day 2: 1:1 pitch calls. Day 3: family office & LP insights.\n\n"
-                f"With code **{code}**, you get 10% off any pass.\n\n"
-                f"Register free at {link}"
+            "kicker": "ON JAN 27–29, ONLINE",
+            "headline": "Pitch your startup 1:1 to matched investors at Virtual VC Conf",
+            "newsletter": _blocks(
+                f"{p} is partnering with Virtual VC Conf: three days online with VCs, angels, family offices and LPs. Speakers include {p1}.",
+                who,
+                f"**For founders raising now:** get a pass with 8-minute 1:1 pitch calls on Day 2, with investors matched to your sector, stage and geography. Pass prices go up as the event gets closer, so today's price is the lowest. Code {code} gives 10% off any pass.",
+                "**Just want to listen in?** The Day 1 panels with top VCs are free to watch.",
+                "**Investors:** get a free 3-day pass for committing to 15 founder pitches on Day 2.",
+                f"Register at {link}",
             ),
-            "linkedin": (
-                "We're a media partner of Virtual VC Conf 2027, and it's free to join 🎉\n\n"
-                "Jan 27–29, 100% online. Meet 1,000+ VCs, angels, family offices, LPs & startups:\n\n"
-                "→ Day 1: VC panels + 25+ breakout rooms led by 100+ VCs & angels. Free livestream\n"
-                "→ Day 2: 8-min 1:1 pitch calls with matched investors\n"
+            "linkedin": _li(
+                c,
+                "Raising in 2027? Here's a fast way to get in front of investors.\n\n"
+                f"Virtual VC Conf, Jan 27–29, 100% online. Speakers include {p1f}.\n\n"
+                "→ Day 1: VC panels + 25+ breakout rooms led by 100+ VCs & angels (free to watch)\n"
+                "→ Day 2: 8-min 1:1 pitch calls with investors matched to your sector and stage\n"
                 "→ Day 3: family office & LP insights + 10+ rooms led by 30+ FOs & LPs\n\n"
-                f"Investors: free 3-day pass for committing to 15 founder pitches. Code {code} gives 10% off any pass.\n\n"
-                f"Register free: {li}"
+                f"Pass prices go up as the event gets closer. Code {code} gives 10% off any pass.\n\n"
+                "Investors: free 3-day pass for committing to 15 founder pitches.\n\n"
+                f"Register: {li}",
             ),
-            "note": "Attach the square poster.",
+            "note": POSTER_NOTE,
             "banner_hint": BANNER_HINT,
         },
         {
             "title": "Post 2: Speakers",
             "when": "Dec 1–11",
-            "kicker": "ON JAN 27–29",
+            "kicker": "ON JAN 27–29, ONLINE",
             "headline": "Meet the speakers at Virtual VC Conf",
-            "newsletter": (
-                "Speakers include Justin Stebbins (Northgate, $5B+ AUM), Yaron Valler (Target Global), "
-                "Gené Teare (Crunchbase), Sophie Buonassisi (GTMfund) and Douglas Sloan (Better Society Capital).\n\n"
-                "- **Attend for free** and watch their panels on Day 1.\n"
-                "- **Get a pass with 1:1 pitch calls** to pitch investors matched to your sector, stage and geography.\n\n"
-                f"With code **{code}**, you get 10% off any pass.\n\n"
-                f"Register free at {link}"
+            "newsletter": _blocks(
+                f"The January lineup includes {p2}.",
+                who,
+                f"**For founders raising now:** get a pass with 1:1 pitch calls to pitch investors matched to your sector, stage and geography on Day 2. Prices go up as the event gets closer. Code {code} gives 10% off any pass.",
+                "**Just want to listen in?** Watch the Day 1 panels for free.",
+                "**Investors:** free 3-day pass for committing to 15 founder pitches on Day 2.",
+                f"Register at {link}",
             ),
-            "linkedin": (
-                "Northgate, Target Global, Crunchbase, GTMfund, Better Society Capital.\n\n"
-                "That's part of the speaker lineup at the free Virtual VC Conf, Jan 27–29. "
-                "Day 1 panels are free to watch, and on Day 2 founders pitch matched investors in 8-minute 1:1 calls.\n\n"
-                f"We're a media partner this year. Code {code} gives 10% off any pass.\n\n"
-                f"Register free: {li}"
+            "linkedin": _li(
+                c,
+                f"{p2f}.\n\n"
+                "That's part of the lineup at Virtual VC Conf, Jan 27–29, online. On Day 2, founders pitch matched investors in 8-minute 1:1 calls. Day 1 panels are free to watch.\n\n"
+                f"Prices go up as the event gets closer. Code {code} gives 10% off any pass.\n\n"
+                f"Register: {li}",
             ),
+            "note": POSTER_NOTE,
             "banner_hint": BANNER_HINT,
         },
         {
@@ -161,20 +237,24 @@ def copies(c: dict) -> list[dict]:
             "when": "Jan 5–14",
             "kicker": "ON JAN 28",
             "headline": "Raising this year? Pitch matched investors in 8-minute 1:1s",
-            "newsletter": (
-                "At Virtual VC Conf, founders get 1:1 calls with investors matched by sector, stage and geography. Investors can flag your deck in advance, and those meetings come first.\n\n"
-                "- **Attend for free** and watch Day 1 panels with top VCs.\n"
-                "- **Get a pass with 1:1 pitch calls** to get on investors' calendars on Day 2.\n\n"
-                f"With code **{code}**, you get 10% off any pass.\n\n"
-                f"Register free at {link}"
+            "newsletter": _blocks(
+                "At Virtual VC Conf, founders get 1:1 calls with investors matched by sector, stage and geography. Investors can flag your deck in advance, and those meetings come first.",
+                f"The day before, on Jan 27, the main stage features {p3}.",
+                who,
+                f"**For founders:** get a pass with 1:1 pitch calls to get on investors' calendars on Day 2. Prices go up as the event gets closer. Code {code} gives 10% off any pass.",
+                "**Just want to listen in?** Day 1 panels are free to watch.",
+                "**Investors:** free 3-day pass for committing to 15 founder pitches on Day 2.",
+                f"Register at {link}",
             ),
-            "linkedin": (
+            "linkedin": _li(
+                c,
                 "Raising this year? Here's a fast way to get in front of investors.\n\n"
-                "On Jan 28, founders at the free Virtual VC Conf get 8-minute 1:1 calls with investors matched by sector, stage and geography.\n\n"
-                "The day before, 100+ VCs & angels lead 25+ breakout rooms, and the Day 1 panels are free to watch.\n\n"
-                f"Code {code} gives 10% off any pass.\n"
-                f"Register free: {li}"
+                "On Jan 28, founders at Virtual VC Conf get 8-minute 1:1 calls with investors matched by sector, stage and geography. "
+                f"The day before, 100+ VCs & angels lead 25+ breakout rooms, with speakers from {p3f}.\n\n"
+                f"Prices go up as the event gets closer. Code {code} gives 10% off any pass. Day 1 is free to watch.\n\n"
+                f"Register: {li}",
             ),
+            "note": POSTER_NOTE,
             "banner_hint": BANNER_HINT,
         },
         {
@@ -182,23 +262,25 @@ def copies(c: dict) -> list[dict]:
             "when": "Jan 19–22",
             "kicker": "NEXT WEEK, JAN 27–29",
             "headline": "Last call for Virtual VC Conf",
-            "newsletter": (
-                "The full program is live. 8 AM PT / 11 AM ET, 100% online.\n\n"
-                "- **Attend for free** and watch Day 1 panels with top VCs.\n"
-                "- **Get a pass with 1:1 pitch calls** to pitch matched investors on Day 2.\n"
-                "- **Investors get a free 3-day pass** for committing to 15 founder pitches on Day 2.\n\n"
-                f"With code **{code}**, you get 10% off any pass.\n\n"
-                f"Register free at {link}"
+            "newsletter": _blocks(
+                f"The full program is live: 8 AM PT / 11 AM ET, 100% online, with {p4} on Day 1.",
+                who,
+                f"**For founders:** this is the last week to get a pass with 1:1 pitch calls with matched investors on Day 2. Prices go up until the event starts. Code {code} still gives 10% off any pass.",
+                "**Just want to listen in?** Day 1 panels are free to watch.",
+                "**Investors:** free 3-day pass for committing to 15 founder pitches on Day 2.",
+                f"Register at {link}",
             ),
-            "linkedin": (
-                "Next week: Virtual VC Conf, and the Day 1 panels are free to watch.\n\n"
+            "linkedin": _li(
+                c,
+                "Last call: Virtual VC Conf starts next week.\n\n"
                 "Jan 27–29, 8 AM PT / 11 AM ET, 100% online:\n"
-                "→ Day 1: VC panels + breakout rooms led by 100+ VCs & angels\n"
+                f"→ Day 1: VC panels with {p4f} + breakout rooms led by 100+ VCs & angels (free to watch)\n"
                 "→ Day 2: 1:1 pitch calls with matched investors\n"
                 "→ Day 3: family offices & LPs\n\n"
-                f"Code {code} gives 10% off any pass.\n\n"
-                f"Register free: {li}"
+                f"Last week to get a pitch pass. Code {code} gives 10% off any pass.\n\n"
+                f"Register: {li}",
             ),
+            "note": POSTER_NOTE,
             "banner_hint": BANNER_HINT,
         },
     ]
@@ -235,7 +317,7 @@ def markdown(
         "",
         f"**Your link:** {link}",
         "",
-        f"**Your code:** {c['code']}",
+        f"**Your code:** {c['code']} (10% off any pass)",
         "",
         f"**Planned posting dates:** {c['dates']}",
         "",
@@ -247,7 +329,7 @@ def markdown(
         "- Jan 19–22 → Post 4",
         "- only two posts → Post 1 and Post 4",
         "",
-        f'Feel free to adapt the copy to your voice. Just keep the word "free" and your link: they drive most of the clicks.',
+        VOICE_HINT,
         "",
         "Visuals: the banner for newsletters (link the whole image to your link), the square poster for LinkedIn, the vertical poster for anything else.",
         "",
@@ -342,7 +424,7 @@ def html_page(
                 out.append("</ul>")
                 in_list = False
             if para.strip():
-                if para.startswith("Register free at "):
+                if para.startswith("Register at "):
                     out.append(f"<p><strong>{esc(para)}</strong></p>")
                 else:
                     out.append(f"<p>{rich(para)}</p>")
@@ -400,7 +482,7 @@ def html_page(
   <h1>{esc(page_title(c["partner"]))}</h1>
   <p>{esc(c["welcome"])}</p>
   <p><strong>Your link:</strong> <a href="{link}">{link}</a></p>
-  <p><strong>Your code:</strong> <code>{code}</code></p>
+  <p><strong>Your code:</strong> <code>{code}</code> (10% off any pass)</p>
   <p><strong>Planned posting dates:</strong> {esc(c["dates"])}</p>
   <p>Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:</p>
   <ul>
@@ -410,7 +492,7 @@ def html_page(
     <li>Jan 19–22 → Post 4</li>
     <li>only two posts → Post 1 and Post 4</li>
   </ul>
-  <p>Feel free to adapt the copy to your voice. Just keep the word “free” and your link: they drive most of the clicks.</p>
+  <p>{esc(VOICE_HINT)}</p>
   <p>Visuals: the banner for newsletters (link the whole image to your link), the square poster for LinkedIn, the vertical poster for anything else.</p>
   {imgs}
   <p>Click an image → ⋯ → Download</p>
@@ -472,7 +554,7 @@ def notion_children(
     def code(text: str) -> dict:
         # Notion autolinks host?query inside code and copies <https://…>.
         # Split + ZWSP after '.' and '?' so the copied text is plain.
-        marker = "Register free: "
+        marker = "Register: "
         idx = text.rfind(marker)
         nodes: list[dict] = []
         if idx == -1:
@@ -535,7 +617,7 @@ def notion_children(
     kids = [
         para(rt(c["welcome"])),
         para(rt("Your link: ", bold=True), rt(c["link"])),
-        para(rt("Your code: ", bold=True), rt(c["code"])),
+        para(rt("Your code: ", bold=True), rt(c["code"] + " (10% off any pass)")),
         para(rt("Planned posting dates: ", bold=True), rt(c["dates"])),
         para(rt("Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:")),
         bullet(f"{c['post1_list']} → Post 1"),
@@ -543,7 +625,7 @@ def notion_children(
         bullet("early January → Post 3"),
         bullet("Jan 19–22 → Post 4"),
         bullet("only two posts → Post 1 and Post 4"),
-        para(rt('Feel free to adapt the copy to your voice. Just keep the word "free" and your link: they drive most of the clicks.')),
+        para(rt(VOICE_HINT)),
         para(rt("Visuals: the banner for newsletters (link the whole image to your link), the square poster for LinkedIn, the vertical poster for anything else.")),
     ]
     if c["poster_banner_url"]:
@@ -565,7 +647,7 @@ def notion_children(
             if lines and all(ln.startswith("- ") for ln in lines):
                 for ln in lines:
                     kids.append(bullet_bits(*md_bits(ln[2:])))
-            elif chunk.startswith("Register free at "):
+            elif chunk.startswith("Register at "):
                 kids.append(para(rt(chunk, bold=True)))
             else:
                 kids.append(para(*md_bits(chunk.replace("\n", " "))))

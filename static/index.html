@@ -53,6 +53,7 @@
     .diff li { margin:4px 0; }
     .saved-row { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); }
     .saved-row a.edit { font-weight:600; }
+    .saved-row button { margin-top: 0; padding: 8px 12px; font-size: 13px; }
     .ok { color:#166534; font-size:14px; margin-top:10px; }
     .progress { display:none; margin-top:14px; }
     .progress.on { display:block; }
@@ -264,6 +265,36 @@
         </div>
         <div class="row">
           <div>
+            <label for="p-speaker" style="display:flex;gap:8px;align-items:center;margin:0;color:var(--ink);font-size:14px;">
+              <input id="p-speaker" name="is_speaker" type="checkbox" value="on" />
+              партнёр выступает
+            </label>
+          </div>
+          <p class="note">Как onSpark: строка про выступление в рассылке, LinkedIn от первого лица.</p>
+        </div>
+        <div class="row">
+          <div>
+            <label for="p-speaker-name">Имя спикера</label>
+            <input id="p-speaker-name" name="speaker_name" type="text" placeholder="Alex Kim" />
+          </div>
+          <p class="note">Только если партнёр сам на сцене.</p>
+        </div>
+        <div class="row">
+          <div>
+            <label for="p-speaker-role">Должность</label>
+            <input id="p-speaker-role" name="speaker_role" type="text" placeholder="General Partner" />
+          </div>
+          <p class="note">Попадёт в строку «Name, role at Company».</p>
+        </div>
+        <div class="row">
+          <div>
+            <label for="p-speaker-topic">Тема выступления</label>
+            <input id="p-speaker-topic" name="speaker_topic" type="text" placeholder="how angels pick a first check" />
+          </div>
+          <p class="note">27 января, главная сцена.</p>
+        </div>
+        <div class="row">
+          <div>
             <label for="p-company">Компания</label>
             <input id="p-company" name="company" type="text" required placeholder="Founders Bay" />
             <input id="p-partner-id" name="partner_id" type="hidden" />
@@ -352,7 +383,7 @@
           <div class="actions">
             <button type="button" id="p-one-download">Скачать PNG</button>
             <button type="button" class="ghost" id="p-one-share">Сделать ссылку</button>
-            <button type="button" class="ghost" id="p-notion">Сохранить и пересоздать</button>
+            <button type="button" class="ghost" id="p-notion">Сохранить и создать</button>
           </div>
           <div class="link-out" id="p-one-link-box">
             <label for="p-one-link">Ссылка на PNG</label>
@@ -365,7 +396,7 @@
             <textarea class="md" id="p-md" hidden></textarea>
             <button type="button" class="ghost" id="p-md-copy">Скопировать тексты</button>
           </div>
-          <p class="note" id="p-notion-note">Скопируй markdown и целиком замени страницу в Notion. Картинки — ссылки на R2 с хешем в имени, старые URL не обновятся сами.</p>
+          <p class="note" id="p-notion-note">Тексты пишутся в уже существующую страницу по той же ссылке. У нового партнёра страница создаётся сразу с новым шаблоном.</p>
           <div class="diff" id="p-diff"></div>
         </div>
       </form>
@@ -426,6 +457,10 @@
       ["logo_scale", "p-logo-scale", "масштаб лого"],
     ];
     function kitVal(id) { return (document.getElementById(id).value || "").trim(); }
+    function kitSaveLabel() {
+      const existing = (loadedPartner && loadedPartner.id) || kitVal("p-partner-id");
+      document.getElementById("p-notion").textContent = existing ? "Пересоздать" : "Сохранить и создать";
+    }
     function fillKit(p) {
       loadedPartner = p;
       document.getElementById("p-partner-id").value = p.id || "";
@@ -441,7 +476,11 @@
       if (Number(sc) > 0 && Number(sc) <= 1) sc = String(Math.round(Number(sc) * 100));
       document.getElementById("p-logo-scale").value = sc;
       document.getElementById("p-confirmed").checked = !!p.confirmed;
-      document.getElementById("p-notion").textContent = "Сохранить и пересоздать";
+      document.getElementById("p-speaker").checked = !!p.is_speaker;
+      document.getElementById("p-speaker-name").value = p.speaker_name || "";
+      document.getElementById("p-speaker-role").value = p.speaker_role || "";
+      document.getElementById("p-speaker-topic").value = p.speaker_topic || "";
+      kitSaveLabel();
       const miss = [];
       if (!p.logo_url) miss.push("логотипа");
       if (!p.reg_url) miss.push("ссылки регистрации");
@@ -488,7 +527,7 @@
         const rows = data.partners || [];
         list.innerHTML = rows.map(p => {
           const miss = (p.kit_missing || []).length ? ` · нет ${p.kit_missing.join(", ")}` : "";
-          return `<div class="saved-row"><span><b>${p.company}</b> ${p.code ? "· " + p.code : ""}<span class="note" style="margin:0">${miss}</span></span><a class="edit" href="/materials?p=${p.id}">Редактировать</a></div>`;
+          return `<div class="saved-row"><span><b>${p.company}</b> ${p.code ? "· " + p.code : ""}<span class="note" style="margin:0">${miss}</span></span><span><button type="button" class="ghost refresh-copy" data-id="${p.id}">Обновить тексты</button> <a class="edit" href="/materials?p=${p.id}">Редактировать</a></span></div>`;
         }).join("") || "<p class='note'>Пока никого нет — собери материалы один раз, карточка сохранится.</p>";
       } catch (e) {
         err.textContent = e.message || "не загрузил список";
@@ -528,6 +567,45 @@
       }
       document.getElementById("p-logo").addEventListener("change", checkLogo);
       document.getElementById("p-logo-url").addEventListener("change", checkLogo);
+      document.getElementById("saved-list").addEventListener("click", async (e) => {
+        const btn = e.target.closest(".refresh-copy");
+        if (!btn || btn.disabled) return;
+        const id = btn.dataset.id;
+        const hint = document.getElementById("saved-hint");
+        const err = document.getElementById("saved-err");
+        err.textContent = "";
+        btn.disabled = true;
+        const prev = btn.textContent;
+        btn.textContent = "Обновляю…";
+        let body = {};
+        if (loadedPartner && String(loadedPartner.id) === String(id)) {
+          body = {
+            is_speaker: document.getElementById("p-speaker").checked,
+            speaker_name: kitVal("p-speaker-name"),
+            speaker_role: kitVal("p-speaker-role"),
+            speaker_topic: kitVal("p-speaker-topic"),
+          };
+        }
+        try {
+          const res = await fetch("/api/partners/" + id + "/refresh-copy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.detail || res.statusText);
+          hint.textContent = data.html_url
+            ? "Тексты обновлены. Новая страница: " + data.html_url
+            : (data.hint || "Тексты собраны, ссылку сохранить некуда.");
+          if (data.partner) loadedPartner = data.partner;
+          btn.textContent = "Готово";
+        } catch (ex) {
+          err.textContent = ex.message || "не обновил тексты";
+          btn.textContent = prev;
+        } finally {
+          btn.disabled = false;
+        }
+      });
     }
     const templateSelect = document.getElementById("template");
     let queueToken = sessionStorage.getItem("queueToken") || "";
@@ -915,6 +993,11 @@
           note.textContent = "Не получилось собрать страницу. Можно скопировать тексты кнопкой ниже.";
         }
         try { await navigator.clipboard.writeText(best); } catch (e) { /* select enough */ }
+        if (data.partner_id) {
+          document.getElementById("p-partner-id").value = data.partner_id;
+          loadedPartner = Object.assign({}, loadedPartner || {}, { id: data.partner_id });
+          kitSaveLabel();
+        }
       } catch (ex) {
         err.textContent = ex.message;
       } finally {

@@ -4,7 +4,7 @@
 
 **Your link:** {{reg_url}}
 
-**Your code:** {{code}}
+**Your code:** {{code}} (10% off any pass)
 
 **Planned posting dates:** {{posting_dates}}
 
@@ -16,7 +16,7 @@ Below is ready-to-use copy for each date, with a newsletter and a LinkedIn versi
 - Jan 19–22 → Post 4
 - only two posts → Post 1 and Post 4
 
-Feel free to adapt the copy to your voice. Just keep the word "free" and your link: they drive most of the clicks.
+Feel free to adapt the copy to your voice. Just keep your link and your code: that's how we see the registrations from your audience.
 
 Visuals: the banner for newsletters (link the whole image to your link), the square poster for LinkedIn, the vertical poster for anything else.
 
@@ -28,44 +28,46 @@ Click an image → ⋯ → Download
 
 ---
 
+Speaker names come from `speakers.py`. Posts 1, 3 and 4 use people with `top: true`. Post 2 uses the full list.
+
 ## Post 1: Announcement
 
 *When:* {{post1_when}}
 
 **Newsletter**
 
-**ON JAN 27–29**
+**ON JAN 27–29, ONLINE**
 
-**Virtual VC Conf 2027 is coming up!**
+**Pitch your startup 1:1 to matched investors at Virtual VC Conf**
 
-{{company}} is partnering with Virtual VC Conf: three days online with 1,000+ VCs, angels, family offices, LPs and startups.
+{{company}} is partnering with Virtual VC Conf: three days online with VCs, angels, family offices and LPs. Speakers include David Cohen (Techstars), Carolin Wais (Plug and Play), Ray Wu (Alumni Ventures), Amit Patel (Owl Ventures) and Haley Bryant (Hustle Fund).
 
-- **Attend for free** and watch Day 1 panels with top VCs.
-- **Get a pass with 1:1 pitch calls** if you want to pitch matched investors on Day 2.
-- **Investors get a free 3-day pass** for committing to 15 founder pitches on Day 2.
+**For founders raising now:** get a pass with 8-minute 1:1 pitch calls on Day 2, with investors matched to your sector, stage and geography. Pass prices go up as the event gets closer, so today's price is the lowest. Code {{code}} gives 10% off any pass.
 
-Day 1: VC panels + 25+ breakout rooms. Day 2: 1:1 pitch calls. Day 3: family office & LP insights.
+**Just want to listen in?** The Day 1 panels with top VCs are free to watch.
 
-With code **{{code}}**, you get 10% off any pass.
+**Investors:** get a free 3-day pass for committing to 15 founder pitches on Day 2.
 
-**Register free at {{reg_url}}**
+Register at {{reg_url}}
 
 Add the banner here and link it to your link.
 
 **LinkedIn**
 
 ```
-We're a media partner of Virtual VC Conf 2027, and it's free to join 🎉
+Raising in 2027? Here's a fast way to get in front of investors.
 
-Jan 27–29, 100% online. Meet 1,000+ VCs, angels, family offices, LPs & startups:
+Virtual VC Conf, Jan 27–29, 100% online. Speakers include Techstars, Plug and Play, Alumni Ventures, Owl Ventures and Hustle Fund.
 
-→ Day 1: VC panels + 25+ breakout rooms led by 100+ VCs & angels. Free livestream
-→ Day 2: 8-min 1:1 pitch calls with matched investors
+→ Day 1: VC panels + 25+ breakout rooms led by 100+ VCs & angels (free to watch)
+→ Day 2: 8-min 1:1 pitch calls with investors matched to your sector and stage
 → Day 3: family office & LP insights + 10+ rooms led by 30+ FOs & LPs
 
-Investors: free 3-day pass for committing to 15 founder pitches. Code {{code}} gives 10% off any pass.
+Pass prices go up as the event gets closer. Code {{code}} gives 10% off any pass.
 
-Register free: {{reg_url}}
+Investors: free 3-day pass for committing to 15 founder pitches.
+
+Register: {{reg_url}}
 ```
 
 Attach the square poster.
@@ -78,32 +80,35 @@ Attach the square poster.
 
 **Newsletter**
 
-**ON JAN 27–29**
+**ON JAN 27–29, ONLINE**
 
 **Meet the speakers at Virtual VC Conf**
 
-Speakers include Justin Stebbins (Northgate, $5B+ AUM), Yaron Valler (Target Global), Gené Teare (Crunchbase), Sophie Buonassisi (GTMfund) and Douglas Sloan (Better Society Capital).
+The January lineup includes David Cohen (Techstars), Carolin Wais (Plug and Play), Ray Wu (Alumni Ventures), Amit Patel (Owl Ventures), Edward Keelan (Octopus Ventures), Yaron Valler (Target Global), Haley Bryant (Hustle Fund) and Justin Stebbins (Northgate, $5B+ AUM).
 
-- **Attend for free** and watch their panels on Day 1.
-- **Get a pass with 1:1 pitch calls** to pitch investors matched to your sector, stage and geography.
+**For founders raising now:** get a pass with 1:1 pitch calls to pitch investors matched to your sector, stage and geography on Day 2. Prices go up as the event gets closer. Code {{code}} gives 10% off any pass.
 
-With code **{{code}}**, you get 10% off any pass.
+**Just want to listen in?** Watch the Day 1 panels for free.
 
-**Register free at {{reg_url}}**
+**Investors:** free 3-day pass for committing to 15 founder pitches on Day 2.
+
+Register at {{reg_url}}
 
 Add the banner here and link it to your link.
 
 **LinkedIn**
 
 ```
-Northgate, Target Global, Crunchbase, GTMfund, Better Society Capital.
+Techstars, Plug and Play, Alumni Ventures, Owl Ventures, Octopus Ventures, Target Global, Hustle Fund, Northgate.
 
-That's part of the speaker lineup at the free Virtual VC Conf, Jan 27–29. Day 1 panels are free to watch, and on Day 2 founders pitch matched investors in 8-minute 1:1 calls.
+That's part of the lineup at Virtual VC Conf, Jan 27–29, online. On Day 2, founders pitch matched investors in 8-minute 1:1 calls. Day 1 panels are free to watch.
 
-We're a media partner this year. Code {{code}} gives 10% off any pass.
+Prices go up as the event gets closer. Code {{code}} gives 10% off any pass.
 
-Register free: {{reg_url}}
+Register: {{reg_url}}
 ```
+
+Attach the square poster.
 
 ---
 
@@ -119,12 +124,15 @@ Register free: {{reg_url}}
 
 At Virtual VC Conf, founders get 1:1 calls with investors matched by sector, stage and geography. Investors can flag your deck in advance, and those meetings come first.
 
-- **Attend for free** and watch Day 1 panels with top VCs.
-- **Get a pass with 1:1 pitch calls** to get on investors' calendars on Day 2.
+The day before, on Jan 27, the main stage features David Cohen (Techstars), Plug and Play, Alumni Ventures, Owl Ventures and Hustle Fund.
 
-With code **{{code}}**, you get 10% off any pass.
+**For founders:** get a pass with 1:1 pitch calls to get on investors' calendars on Day 2. Prices go up as the event gets closer. Code {{code}} gives 10% off any pass.
 
-**Register free at {{reg_url}}**
+**Just want to listen in?** Day 1 panels are free to watch.
+
+**Investors:** free 3-day pass for committing to 15 founder pitches on Day 2.
+
+Register at {{reg_url}}
 
 Add the banner here and link it to your link.
 
@@ -133,13 +141,14 @@ Add the banner here and link it to your link.
 ```
 Raising this year? Here's a fast way to get in front of investors.
 
-On Jan 28, founders at the free Virtual VC Conf get 8-minute 1:1 calls with investors matched by sector, stage and geography.
+On Jan 28, founders at Virtual VC Conf get 8-minute 1:1 calls with investors matched by sector, stage and geography. The day before, 100+ VCs & angels lead 25+ breakout rooms, with speakers from Techstars, Plug and Play, Alumni Ventures, Owl Ventures and Hustle Fund.
 
-The day before, 100+ VCs & angels lead 25+ breakout rooms, and the Day 1 panels are free to watch.
+Prices go up as the event gets closer. Code {{code}} gives 10% off any pass. Day 1 is free to watch.
 
-Code {{code}} gives 10% off any pass.
-Register free: {{reg_url}}
+Register: {{reg_url}}
 ```
+
+Attach the square poster.
 
 ---
 
@@ -153,29 +162,39 @@ Register free: {{reg_url}}
 
 **Last call for Virtual VC Conf**
 
-The full program is live. 8 AM PT / 11 AM ET, 100% online.
+The full program is live: 8 AM PT / 11 AM ET, 100% online, with David Cohen (Techstars), Plug and Play, Alumni Ventures, Owl Ventures and Hustle Fund on Day 1.
 
-- **Attend for free** and watch Day 1 panels with top VCs.
-- **Get a pass with 1:1 pitch calls** to pitch matched investors on Day 2.
-- **Investors get a free 3-day pass** for committing to 15 founder pitches on Day 2.
+**For founders:** this is the last week to get a pass with 1:1 pitch calls with matched investors on Day 2. Prices go up until the event starts. Code {{code}} still gives 10% off any pass.
 
-With code **{{code}}**, you get 10% off any pass.
+**Just want to listen in?** Day 1 panels are free to watch.
 
-**Register free at {{reg_url}}**
+**Investors:** free 3-day pass for committing to 15 founder pitches on Day 2.
+
+Register at {{reg_url}}
 
 Add the banner here and link it to your link.
 
 **LinkedIn**
 
 ```
-Next week: Virtual VC Conf, and the Day 1 panels are free to watch.
+Last call: Virtual VC Conf starts next week.
 
 Jan 27–29, 8 AM PT / 11 AM ET, 100% online:
-→ Day 1: VC panels + breakout rooms led by 100+ VCs & angels
+→ Day 1: VC panels with Techstars, Plug and Play, Alumni Ventures, Owl Ventures & Hustle Fund + breakout rooms led by 100+ VCs & angels (free to watch)
 → Day 2: 1:1 pitch calls with matched investors
 → Day 3: family offices & LPs
 
-Code {{code}} gives 10% off any pass.
+Last week to get a pitch pass. Code {{code}} gives 10% off any pass.
 
-Register free: {{reg_url}}
+Register: {{reg_url}}
 ```
+
+Attach the square poster.
+
+---
+
+If the partner is also a speaker (`is_speaker` on the partner card), add this line after the speakers line in each newsletter:
+
+{{speaker_name}}, {{speaker_role}} at {{company}}, speaks on the main stage on Jan 27 about {{speaker_topic}}.
+
+And open each LinkedIn post with: On Jan 27, I'm speaking at Virtual VC Conf about {{speaker_topic}}.

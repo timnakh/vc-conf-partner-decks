@@ -397,7 +397,8 @@ def _partner_row(cur, pid: int) -> dict | None:
     row = cur.execute(
         "SELECT id, company, code, reg_url, notion_page_url, posting_dates_raw, "
         "first_post_date, confirmed, created_at, notes, first_name, website, logo_url, "
-        "logo_scale, poster_url, poster_square_url, poster_banner_url FROM partner WHERE id=%s",
+        "logo_scale, poster_url, poster_square_url, poster_banner_url, "
+        "is_speaker, speaker_name, speaker_role, speaker_topic FROM partner WHERE id=%s",
         (pid,),
     ).fetchone()
     if not row:
@@ -421,6 +422,10 @@ def _partner_row(cur, pid: int) -> dict | None:
         "poster_url": row[14] or "",
         "poster_square_url": row[15] or "",
         "poster_banner_url": row[16] or "",
+        "is_speaker": bool(row[17]),
+        "speaker_name": row[18] or "",
+        "speaker_role": row[19] or "",
+        "speaker_topic": row[20] or "",
     }
 
 
@@ -1073,6 +1078,10 @@ def save_partner(pid: int, **fields) -> dict:
         "poster_url",
         "poster_square_url",
         "poster_banner_url",
+        "is_speaker",
+        "speaker_name",
+        "speaker_role",
+        "speaker_topic",
     }
     sets = []
     vals = []
@@ -1081,8 +1090,10 @@ def save_partner(pid: int, **fields) -> dict:
             continue
         if k == "code":
             v = str(v).strip().upper()
-        elif k == "confirmed":
-            v = bool(v)
+        elif k == "confirmed" or k == "is_speaker":
+            v = v if isinstance(v, bool) else str(v).strip().lower() in (
+                "1", "true", "yes", "y", "on", "да",
+            )
         else:
             v = str(v).strip() if isinstance(v, str) else v
         sets.append(f"{k}=%s")
