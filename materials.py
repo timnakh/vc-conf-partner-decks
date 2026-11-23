@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html as html_lib
+import re
 from urllib.parse import quote
 
 import speakers
@@ -59,6 +60,9 @@ def _ctx(
     link = (track_url or "").strip() or "{{reg_url}}"
     short = _short_link(link)
     dates = (posting_dates or "").strip()
+    own = _post_dates(dates)
+    if not (first_post_date or "").strip() and own.get(1):
+        first_post_date = own[1]
     post1_list, post1_when = _post1_labels(first_post_date)
     ok = as_confirmed(confirmed if confirmed is not None else _extra.get("confirmed", True))
     return {
@@ -71,6 +75,12 @@ def _ctx(
         "first_post_date": (first_post_date or "").strip(),
         "post1_list": post1_list,
         "post1_when": post1_when,
+        "post2_list": f"{own[2]}" if own.get(2) else POST_DEFAULTS[2][0],
+        "post2_when": own.get(2) or POST_DEFAULTS[2][1],
+        "post3_list": f"{own[3]}" if own.get(3) else POST_DEFAULTS[3][0],
+        "post3_when": own.get(3) or POST_DEFAULTS[3][1],
+        "post4_list": f"{own[4]}" if own.get(4) else POST_DEFAULTS[4][0],
+        "post4_when": own.get(4) or POST_DEFAULTS[4][1],
         "poster_url": poster_url or "",
         "poster_square_url": poster_square_url or "",
         "poster_banner_url": poster_banner_url or "",
@@ -132,6 +142,39 @@ def _li(c: dict, text: str) -> str:
 
 def _blocks(*parts: str) -> str:
     return "\n\n".join(part for part in parts if part)
+
+
+POST_DEFAULTS = {
+    2: ("December", "Dec 1–11"),
+    3: ("early January", "Jan 5–14"),
+    4: ("Jan 19–22", "Jan 19–22"),
+}
+
+
+def _post_dates(posting_dates: str) -> dict[int, str]:
+    """Spread the partner's own dates over Posts 1–4 by season window."""
+    try:
+        from partners import _extract_date_hits
+    except Exception:
+        return {}
+    text = re.split(r"Posting Mon|Below is ready|Use the post that matches", posting_dates or "", maxsplit=1, flags=re.I)[0]
+    found: dict[int, list[str]] = {}
+    for hit in _extract_date_hits(text):
+        d = hit["date"]
+        if d.month in (10, 11):
+            n = 1
+        elif d.month == 12:
+            n = 2
+        elif d.month == 1 and d.day <= 14 and not hit.get("conference"):
+            n = 3
+        elif d.month == 1:
+            n = 4
+        else:
+            continue
+        label = re.sub(r"\s*-\s*", "–", (hit.get("snippet") or "").strip())
+        if label and label not in found.setdefault(n, []):
+            found[n].append(label)
+    return {n: ", ".join(v) for n, v in found.items()}
 
 
 def _post1_labels(first_post_date: str) -> tuple[str, str]:
@@ -204,7 +247,7 @@ def copies(c: dict) -> list[dict]:
         },
         {
             "title": "Post 2: Speakers",
-            "when": "Dec 1–11",
+            "when": c["post2_when"],
             "kicker": "ON JAN 27–29, ONLINE",
             "headline": "Meet the speakers at Virtual VC Conf",
             "newsletter": _blocks(
@@ -227,7 +270,7 @@ def copies(c: dict) -> list[dict]:
         },
         {
             "title": "Post 3: New year, new round",
-            "when": "Jan 5–14",
+            "when": c["post3_when"],
             "kicker": "ON JAN 28",
             "headline": "Raising this year? Pitch matched investors in 8-minute 1:1s",
             "newsletter": _blocks(
@@ -252,7 +295,7 @@ def copies(c: dict) -> list[dict]:
         },
         {
             "title": "Post 4: Last call",
-            "when": "Jan 19–22",
+            "when": c["post4_when"],
             "kicker": "NEXT WEEK, JAN 27–29",
             "headline": "Last call for Virtual VC Conf",
             "newsletter": _blocks(
@@ -319,9 +362,9 @@ def markdown(
         "Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:",
         "",
         f"- {c['post1_list']} → Post 1",
-        "- December → Post 2",
-        "- early January → Post 3",
-        "- Jan 19–22 → Post 4",
+        f"- {c['post2_list']} → Post 2",
+        f"- {c['post3_list']} → Post 3",
+        f"- {c['post4_list']} → Post 4",
         "- only two posts → Post 1 and Post 4",
         "",
         VOICE_HINT,
@@ -482,9 +525,9 @@ def html_page(
   <p>Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:</p>
   <ul>
     <li>{esc(c["post1_list"])} → Post 1</li>
-    <li>December → Post 2</li>
-    <li>early January → Post 3</li>
-    <li>Jan 19–22 → Post 4</li>
+    <li>{esc(c["post2_list"])} → Post 2</li>
+    <li>{esc(c["post3_list"])} → Post 3</li>
+    <li>{esc(c["post4_list"])} → Post 4</li>
     <li>only two posts → Post 1 and Post 4</li>
   </ul>
   <p>{esc(VOICE_HINT)}</p>
@@ -619,9 +662,9 @@ def notion_children(
     kids += [
         para(rt("Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:")),
         bullet(f"{c['post1_list']} → Post 1"),
-        bullet("December → Post 2"),
-        bullet("early January → Post 3"),
-        bullet("Jan 19–22 → Post 4"),
+        bullet(f"{c['post2_list']} → Post 2"),
+        bullet(f"{c['post3_list']} → Post 3"),
+        bullet(f"{c['post4_list']} → Post 4"),
         bullet("only two posts → Post 1 and Post 4"),
         para(rt(VOICE_HINT)),
         para(rt("Visuals: the banner for newsletters (link the whole image to your link), the square poster for LinkedIn, the vertical poster for anything else.")),
