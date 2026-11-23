@@ -329,7 +329,7 @@ def parse_kit_html(html: str, *, source_url: str = "") -> dict:
     if m:
         first = m.group(1).strip()
     else:
-        m = re.search(r"first post \(ideally\s+([^)]+)\)", blob, re.I)
+        m = re.search(r"first post \((?:ideally\s+)?([^)]+)\)", blob, re.I)
         if m:
             first = m.group(1).strip()
     missing = [

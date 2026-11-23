@@ -7,17 +7,13 @@ from urllib.parse import quote
 
 import speakers
 
-DEFAULT_DATES = (
-    "3–4 posts (newsletter + LinkedIn): by Nov 20, early Dec, early Jan, "
-    "Jan 19–22. Posting Mon–Fri 9–11 am EST"
-)
 BANNER_HINT = "Add the banner here and link it to your link."
 VOICE_HINT = (
     "Feel free to adapt the copy to your voice. Just keep your link and your code: "
     "that's how we see the registrations from your audience."
 )
 POSTER_NOTE = "Attach the square poster."
-POST1_LATEST = "by Nov 20"
+POST1_WHEN_EMPTY = "as soon as possible"
 
 
 def page_title(company: str) -> str:
@@ -62,7 +58,7 @@ def _ctx(
     code = (promo or "").strip().upper() or "{{code}}"
     link = (track_url or "").strip() or "{{reg_url}}"
     short = _short_link(link)
-    dates = (posting_dates or "").strip() or DEFAULT_DATES
+    dates = (posting_dates or "").strip()
     post1_list, post1_when = _post1_labels(first_post_date)
     ok = as_confirmed(confirmed if confirmed is not None else _extra.get("confirmed", True))
     return {
@@ -141,11 +137,8 @@ def _blocks(*parts: str) -> str:
 def _post1_labels(first_post_date: str) -> tuple[str, str]:
     date = (first_post_date or "").strip()
     if date:
-        return (
-            f"first post (ideally {date})",
-            f"ideally {date}, at the latest by Nov 20",
-        )
-    return POST1_LATEST, POST1_LATEST
+        return f"first post ({date})", date
+    return "first post", POST1_WHEN_EMPTY
 
 
 def _short_link(url: str) -> str:
@@ -318,8 +311,10 @@ def markdown(
         f"**Your link:** {link}",
         "",
         f"**Your code:** {c['code']} (10% off any pass)",
-        "",
-        f"**Planned posting dates:** {c['dates']}",
+    ]
+    if c["dates"]:
+        lines += ["", f"**Planned posting dates:** {c['dates']}"]
+    lines += [
         "",
         "Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:",
         "",
@@ -483,7 +478,7 @@ def html_page(
   <p>{esc(c["welcome"])}</p>
   <p><strong>Your link:</strong> <a href="{link}">{link}</a></p>
   <p><strong>Your code:</strong> <code>{code}</code> (10% off any pass)</p>
-  <p><strong>Planned posting dates:</strong> {esc(c["dates"])}</p>
+  {f'<p><strong>Planned posting dates:</strong> {esc(c["dates"])}</p>' if c["dates"] else ""}
   <p>Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:</p>
   <ul>
     <li>{esc(c["post1_list"])} → Post 1</li>
@@ -618,7 +613,10 @@ def notion_children(
         para(rt(c["welcome"])),
         para(rt("Your link: ", bold=True), rt(c["link"])),
         para(rt("Your code: ", bold=True), rt(c["code"] + " (10% off any pass)")),
-        para(rt("Planned posting dates: ", bold=True), rt(c["dates"])),
+    ]
+    if c["dates"]:
+        kids.append(para(rt("Planned posting dates: ", bold=True), rt(c["dates"])))
+    kids += [
         para(rt("Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:")),
         bullet(f"{c['post1_list']} → Post 1"),
         bullet("December → Post 2"),
