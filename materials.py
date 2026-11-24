@@ -64,6 +64,7 @@ def _ctx(
     own = _post_dates(dates)
     if not (first_post_date or "").strip() and own.get(1):
         first_post_date = own[1]
+    guide, whens, first_post_date = _guide(own, first_post_date)
     post1_list, post1_when = _post1_labels(first_post_date)
     ok = as_confirmed(confirmed if confirmed is not None else _extra.get("confirmed", True))
     return {
@@ -76,12 +77,10 @@ def _ctx(
         "first_post_date": (first_post_date or "").strip(),
         "post1_list": post1_list,
         "post1_when": post1_when,
-        "post2_list": f"{own[2]}" if own.get(2) else POST_DEFAULTS[2][0],
-        "post2_when": own.get(2) or POST_DEFAULTS[2][1],
-        "post3_list": f"{own[3]}" if own.get(3) else POST_DEFAULTS[3][0],
-        "post3_when": own.get(3) or POST_DEFAULTS[3][1],
-        "post4_list": f"{own[4]}" if own.get(4) else POST_DEFAULTS[4][0],
-        "post4_when": own.get(4) or POST_DEFAULTS[4][1],
+        "guide": guide,
+        "post2_when": whens[2],
+        "post3_when": whens[3],
+        "post4_when": whens[4],
         "poster_url": poster_url or "",
         "poster_square_url": poster_square_url or "",
         "poster_banner_url": poster_banner_url or "",
@@ -180,6 +179,75 @@ def _post_dates(posting_dates: str) -> dict[int, str]:
         if label and label not in found.setdefault(n, []):
             found[n].append(label)
     return {n: ", ".join(v) for n, v in found.items()}
+
+
+POST_OPTIONAL_WHEN = "optional, any time before the last call"
+
+
+def _default_window(n: int, today=None):
+    """Default window for Post n, skipping windows that have already passed."""
+    import datetime as _dt
+    today = today or _dt.date.today()
+    if n == 2:
+        if today <= _dt.date(2026, 12, 11):
+            return ("December", "Dec 1–11")
+        if today <= _dt.date(2026, 12, 18):
+            return ("mid-December", "Dec 14–18")
+        return None
+    if n == 3:
+        return ("early January", "Jan 5–14") if today <= _dt.date(2027, 1, 14) else None
+    if n == 4:
+        return ("Jan 19–22", "Jan 19–22") if today <= _dt.date(2027, 1, 22) else None
+    return None
+
+
+def _guide(own: dict, first_post_date: str, today=None):
+    """Rows for "Use the post that matches your date", plus the When of Posts 2–4.
+
+    - the partner's own dates win; a date already used for Post 1 is not repeated;
+    - with no first date given, the earliest own date becomes Post 1;
+    - posts the partner has no date for are listed as optional extras;
+    - with no dates at all, default windows are used, and passed windows are dropped.
+    Returns (rows, whens, first_post_date); rows are (label, target) pairs.
+    """
+    own = {k: v for k, v in (own or {}).items() if v}
+    p1 = (first_post_date or "").strip()
+    if not p1:
+        for n in (2, 3, 4):
+            if own.get(n):
+                labels = [x.strip() for x in own[n].split(",") if x.strip()]
+                p1 = labels[0]
+                rest = ", ".join(labels[1:])
+                if rest:
+                    own[n] = rest
+                else:
+                    own.pop(n)
+                break
+    given = bool(p1) or any(own.get(n) for n in (2, 3, 4))
+    rows = [(f"first post ({p1})" if p1 else "first post", "Post 1")]
+    whens = {}
+    missing = []
+    for n in (2, 3, 4):
+        lab = (own.get(n) or "").strip()
+        if lab and p1:
+            parts = [x.strip() for x in lab.split(",") if x.strip() and x.strip() != p1]
+            lab = ", ".join(parts)
+        if lab:
+            rows.append((lab, f"Post {n}"))
+            whens[n] = lab
+            continue
+        win = None if given else _default_window(n, today)
+        if win:
+            rows.append((win[0], f"Post {n}"))
+            whens[n] = win[1]
+        else:
+            whens[n] = POST_OPTIONAL_WHEN
+            missing.append(n)
+    for n in missing:
+        rows.append(("an extra post, if you have room", f"Post {n}"))
+    if not given:
+        rows.append(("only two posts", "Post 1 and Post 4"))
+    return rows, whens, p1
 
 
 def _post1_labels(first_post_date: str) -> tuple[str, str]:
@@ -366,11 +434,7 @@ def markdown(
         "",
         "Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:",
         "",
-        f"- {c['post1_list']} → Post 1",
-        f"- {c['post2_list']} → Post 2",
-        f"- {c['post3_list']} → Post 3",
-        f"- {c['post4_list']} → Post 4",
-        "- only two posts → Post 1 and Post 4",
+        *[f"- {a} → {b}" for a, b in c["guide"]],
         "",
         VOICE_HINT,
         "",
@@ -529,11 +593,7 @@ def html_page(
   {f'<p><strong>Planned posting dates:</strong> {esc(c["dates"])}</p>' if c["dates"] else ""}
   <p>Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:</p>
   <ul>
-    <li>{esc(c["post1_list"])} → Post 1</li>
-    <li>{esc(c["post2_list"])} → Post 2</li>
-    <li>{esc(c["post3_list"])} → Post 3</li>
-    <li>{esc(c["post4_list"])} → Post 4</li>
-    <li>only two posts → Post 1 and Post 4</li>
+    {"".join(f"<li>{esc(a)} → {esc(b)}</li>" for a, b in c["guide"])}
   </ul>
   <p>{esc(VOICE_HINT)}</p>
   <p>Visuals: the banner for newsletters (link the whole image to your link), the square poster for LinkedIn, the vertical poster for anything else.</p>
@@ -666,11 +726,7 @@ def notion_children(
         kids.append(para(rt("Planned posting dates: ", bold=True), rt(c["dates"])))
     kids += [
         para(rt("Below is ready-to-use copy for each date, with a newsletter and a LinkedIn version. Use the post that matches your date:")),
-        bullet(f"{c['post1_list']} → Post 1"),
-        bullet(f"{c['post2_list']} → Post 2"),
-        bullet(f"{c['post3_list']} → Post 3"),
-        bullet(f"{c['post4_list']} → Post 4"),
-        bullet("only two posts → Post 1 and Post 4"),
+        *[bullet(f"{a} → {b}") for a, b in c["guide"]],
         para(rt(VOICE_HINT)),
         para(rt("Visuals: the banner for newsletters (link the whole image to your link), the square poster for LinkedIn, the vertical poster for anything else.")),
     ]
