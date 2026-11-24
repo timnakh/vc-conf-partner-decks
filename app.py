@@ -1315,6 +1315,16 @@ def calendar_stats():
         return {"empty": True}
     cur = _json.loads(rows[0][0])
     cur["saved_at"] = rows[0][1].isoformat()
+    import ga
+    if ga.configured():
+        v = ga.visits_by_ref()
+        tot = 0
+        for r in cur.get("rows", []):
+            s = (v.get(str(r.get("ref"))) or {}).get("sessions", 0)
+            r["visits"] = s
+            tot += s
+        cur.setdefault("totals", {})["visits"] = tot
+        cur["ga"] = {"ok": not ga.last_error(), "error": ga.last_error()}
     if len(rows) > 1:
         prev = _json.loads(rows[1][0])
         cur["prev_totals"] = prev.get("totals", {})

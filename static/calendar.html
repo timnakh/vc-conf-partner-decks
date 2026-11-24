@@ -81,6 +81,12 @@
     .st-tbl th, .st-tbl td { border-bottom:1px solid #f1e4c8; padding:6px 8px; text-align:right; white-space:nowrap; }
     .st-tbl th:first-child, .st-tbl td:first-child, .st-tbl th:nth-child(2), .st-tbl td:nth-child(2) { text-align:left; }
     .st-tbl tr.zero td { color:#94a3b8; }
+    .st-metrics { display:grid; grid-template-columns:repeat(auto-fit, minmax(128px, 1fr)); gap:10px; margin:6px 0 14px; }
+    .st-metrics .m { background:linear-gradient(180deg,#fffdf7,#fff6e2); border:1px solid #f1e4c8; border-radius:14px; padding:12px 14px; position:relative; }
+    .st-metrics b { display:block; font-size:34px; line-height:1.05; font-weight:800; letter-spacing:-.04em; }
+    .st-metrics small { display:block; margin-top:4px; color:var(--muted); font-size:12px; }
+    .st-metrics .delta { position:absolute; top:10px; right:12px; color:#166534; font-size:12px; font-weight:700; }
+    .st-tbl tfoot td { font-weight:800; border-top:2px solid #ead9b3; }
   </style>
 </head>
 <body>
@@ -525,15 +531,30 @@ async function loadStats() {
     const d = await j("/api/calendar/stats");
     if (d.empty) { box.innerHTML = "<h2>Результаты МП</h2><p class='hint'>Ещё нет данных: их присылает утренняя сверка.</p>"; return; }
     const t = d.totals || {}, p = d.prev_totals || {};
-    const delta = (k) => { const v = (t[k]||0) - (p[k]||0); return d.prev_totals && v ? `<span class="delta">+${v}</span>` : ""; };
-    const cell = (k, label) => `<div><b>${t[k] ?? 0} ${delta(k)}</b><small>${label}</small></div>`;
-    const rows = (d.rows || []).map(r => `<tr class="${(r.regs||0)+(r.sales||0) ? "" : "zero"}"><td>?${esc(String(r.ref))}</td><td>${esc(r.partner||"")}</td><td>${r.published ?? ""}</td><td>${r.regs||0}</td><td>${r.startups||0}</td><td>${r.investors||0}</td><td>${r.approved_investors||0}</td><td>${r.sales||0}</td><td>${r.revenue ? esc(String(r.revenue)) : ""}</td><td>${esc(r.last_reg||"")}</td></tr>`).join("");
+    const hasVisits = "visits" in t;
+    const delta = (k) => { const v = (t[k]||0) - (p[k]||0); return d.prev_totals && v && k in p ? `<span class="delta">${v>0?"+":""}${v}</span>` : ""; };
+    const card = (k, label, val) => `<div class="m"><b>${val ?? (t[k] ?? 0)}</b>${delta(k)}<small>${label}</small></div>`;
+    const conv = (r) => hasVisits && r.visits ? ((r.regs||0)/r.visits*100).toFixed(1)+"%" : "";
+    const rows = (d.rows || []).map(r => `<tr class="${(r.regs||0)+(r.sales||0)+(r.visits||0) ? "" : "zero"}"><td>?${esc(String(r.ref))}</td><td>${esc(r.partner||"")}</td><td>${r.published ?? ""}</td>${hasVisits ? `<td>${r.visits||0}</td>` : ""}<td>${r.regs||0}</td>${hasVisits ? `<td>${conv(r)}</td>` : ""}<td>${r.startups||0}</td><td>${r.investors||0}</td><td>${r.approved_investors||0}</td><td>${r.sales||0}</td><td>${r.revenue ? esc(String(r.revenue)) : ""}</td><td>${esc(r.last_reg||"")}</td></tr>`).join("");
+    const sum = (k) => (d.rows||[]).reduce((a,r)=>a+(r[k]||0),0);
+    const foot = `<tr class="tot"><td></td><td>Итого</td><td>${sum("published")}</td>${hasVisits ? `<td>${sum("visits")}</td>` : ""}<td>${sum("regs")}</td>${hasVisits ? `<td>${sum("visits") ? (sum("regs")/sum("visits")*100).toFixed(1)+"%" : ""}</td>` : ""}<td>${sum("startups")}</td><td>${sum("investors")}</td><td>${sum("approved_investors")}</td><td>${sum("sales")}</td><td>${esc(String(t.revenue||""))}</td><td></td></tr>`;
     const notes = (d.notes || []).map(n => `<li>${esc(n)}</li>`).join("");
     const when = (d.updated_at || d.saved_at || "").replace("T"," ").slice(0,16);
-    box.innerHTML = `<h2>Результаты МП <span class="hint">· обновлено ${esc(when)}${d.prev_saved_at ? " · прирост к прошлой сверке" : ""}</span></h2>
-      <div class="st-top">${cell("regs","регистраций по ссылкам МП")}${cell("investors","из них инвесторы")}${cell("approved_investors","одобренные инвесторы (website)")}${cell("sales","продаж")}${t.revenue ? `<div><b>${esc(String(t.revenue))}</b><small>выручка</small></div>` : ""}</div>
-      <div class="st-tbl"><table><thead><tr><th>Ref</th><th>Партнёр</th><th>Выходов</th><th>Регов</th><th>Стартапы</th><th>Инвесторы</th><th>Одобр. инв.</th><th>Продажи</th><th>Выручка</th><th>Последняя рег.</th></tr></thead><tbody>${rows}</tbody></table></div>
-      ${notes ? `<ul class="hint">${notes}</ul>` : ""}`;
+    const gaNote = d.ga && !d.ga.ok ? `<p class="err">GA: ${esc(d.ga.error)}</p>` : (hasVisits ? "" : `<p class="hint">Визиты из Google Analytics появятся после подключения GA4.</p>`);
+    box.innerHTML = `<h2>Результаты МП <span class="hint">· обновлено ${esc(when)}${d.prev_saved_at ? " · стрелки — прирост к прошлой сверке" : ""}</span></h2>
+      <div class="st-metrics">
+        ${"mp_confirmed" in t ? card("mp_confirmed","МП согласовано") : ""}
+        ${"mp_interested" in t ? card("mp_interested","МП заинтересовано") : ""}
+        ${card("published","выходов")}
+        ${hasVisits ? card("visits","визитов (GA)") : ""}
+        ${card("regs","регистраций")}
+        ${card("investors","инвесторов")}
+        ${card("approved_investors","одобр. инвесторов")}
+        ${card("sales","продаж")}
+        ${t.revenue ? card("revenue","выручка", esc(String(t.revenue))) : ""}
+      </div>
+      <div class="st-tbl"><table><thead><tr><th>Ref</th><th>Партнёр</th><th>Выходов</th>${hasVisits ? "<th>Визиты</th>" : ""}<th>Регов</th>${hasVisits ? "<th>Конв.</th>" : ""}<th>Стартапы</th><th>Инвесторы</th><th>Одобр. инв.</th><th>Продажи</th><th>Выручка</th><th>Последняя рег.</th></tr></thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table></div>
+      ${gaNote}${notes ? `<ul class="hint">${notes}</ul>` : ""}`;
   } catch (err) {
     box.innerHTML = "<h2>Результаты МП</h2><p class='err'>"+esc(err.message)+"</p>";
   }

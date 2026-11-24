@@ -11,3 +11,4 @@ psycopg[binary]==3.2.9
 psycopg-pool==3.2.6
 svglib==1.5.1
 reportlab==4.4.4
+google-analytics-data==0.23.3
