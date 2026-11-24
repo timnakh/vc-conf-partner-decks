@@ -67,3 +67,47 @@ def visits_by_ref(force: bool = False) -> dict:
 
 def last_error() -> str:
     return _CACHE["error"]
+
+
+def run_report(dimensions: list[str], metrics: list[str], start: str = "", end: str = "today",
+               contains: str = "", dim_filter: str = "", limit: int = 1000, order_by: str = "") -> dict:
+    """Generic GA4 report for the agent: rows as dicts. `contains` filters dim_filter by substring."""
+    from google.analytics.data_v1beta import BetaAnalyticsDataClient
+    from google.analytics.data_v1beta.types import (
+        DateRange, Dimension, Filter, FilterExpression, Metric, OrderBy, RunReportRequest,
+    )
+    from google.oauth2 import service_account
+
+    info = json.loads(os.environ["GA4_SA_JSON"])
+    creds = service_account.Credentials.from_service_account_info(
+        info, scopes=["https://www.googleapis.com/auth/analytics.readonly"]
+    )
+    client = BetaAnalyticsDataClient(credentials=creds)
+    kw = {}
+    if contains and dim_filter:
+        kw["dimension_filter"] = FilterExpression(filter=Filter(
+            field_name=dim_filter,
+            string_filter=Filter.StringFilter(value=contains, match_type=Filter.StringFilter.MatchType.CONTAINS),
+        ))
+    if order_by:
+        desc = order_by.startswith("-")
+        name = order_by.lstrip("-")
+        if name in metrics:
+            kw["order_bys"] = [OrderBy(metric=OrderBy.MetricOrderBy(metric_name=name), desc=desc)]
+        else:
+            kw["order_bys"] = [OrderBy(dimension=OrderBy.DimensionOrderBy(dimension_name=name), desc=desc)]
+    req = RunReportRequest(
+        property=f"properties/{os.environ['GA4_PROPERTY_ID'].strip()}",
+        dimensions=[Dimension(name=d) for d in dimensions],
+        metrics=[Metric(name=m) for m in metrics],
+        date_ranges=[DateRange(start_date=start or START, end_date=end or "today")],
+        limit=min(int(limit or 1000), 10000),
+        **kw,
+    )
+    res = client.run_report(req)
+    rows = []
+    for r in res.rows:
+        row = {d: r.dimension_values[i].value for i, d in enumerate(dimensions)}
+        row.update({m: r.metric_values[i].value for i, m in enumerate(metrics)})
+        rows.append(row)
+    return {"row_count": res.row_count, "rows": rows}

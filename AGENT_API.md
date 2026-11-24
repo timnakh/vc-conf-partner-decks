@@ -27,3 +27,7 @@ Calling it again for the same company+code updates the same page.
 ## Other
 - GET /api/calendar — publications calendar
 - GET /api/agent/guide — this file
+
+GA4 (needs GA4_PROPERTY_ID + GA4_SA_JSON on Render):
+- GET /api/agent/ga?dimensions=landingPagePlusQueryString,date&metrics=sessions,totalUsers&start=2026-11-01&end=today&contains=?122&order_by=-sessions&limit=200
+  Any GA4 Data API dimension/metric names; `contains` filters the first dimension (or filter_dim) by substring.

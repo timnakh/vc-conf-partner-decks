@@ -1332,6 +1332,22 @@ def calendar_stats():
     return cur
 
 
+@app.get("/api/agent/ga")
+def agent_ga(dimensions: str = "landingPagePlusQueryString", metrics: str = "sessions,totalUsers",
+             start: str = "", end: str = "today", contains: str = "", filter_dim: str = "",
+             order_by: str = "-sessions", limit: int = 200):
+    """GA4 report for the AI assistant. Comma-separated GA4 dimension/metric API names."""
+    import ga
+    if not ga.configured():
+        raise HTTPException(400, "GA4 не настроен: нужны GA4_PROPERTY_ID и GA4_SA_JSON на Render")
+    dims = [x.strip() for x in dimensions.split(",") if x.strip()]
+    mets = [x.strip() for x in metrics.split(",") if x.strip()]
+    try:
+        return ga.run_report(dims, mets, start, end, contains, filter_dim or (dims[0] if dims else ""), limit, order_by)
+    except Exception as e:
+        raise HTTPException(400, str(e)[:500]) from e
+
+
 @app.get("/api/calendar")
 def api_calendar():
     try:
