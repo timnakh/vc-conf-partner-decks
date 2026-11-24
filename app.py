@@ -1292,6 +1292,36 @@ def batch_pack(job_id: str, body: PackBody):
     )
 
 
+# ---- MP results (regs / investors / sales), pushed daily by the agent ----
+@app.post("/api/agent/stats")
+async def agent_stats_save(request: Request):
+    import json as _json
+    body = await request.json()
+    if not isinstance(body, dict) or "rows" not in body:
+        raise HTTPException(400, "need {rows: [...], totals: {...}}")
+    with db.connect() as conn:
+        conn.execute("INSERT INTO mp_stats (payload) VALUES (%s)", (_json.dumps(body, ensure_ascii=False),))
+        conn.execute("DELETE FROM mp_stats WHERE id NOT IN (SELECT id FROM mp_stats ORDER BY id DESC LIMIT 60)")
+        conn.commit()
+    return {"ok": True}
+
+
+@app.get("/api/calendar/stats")
+def calendar_stats():
+    import json as _json
+    with db.connect() as conn:
+        rows = conn.execute("SELECT payload, created_at FROM mp_stats ORDER BY id DESC LIMIT 2").fetchall()
+    if not rows:
+        return {"empty": True}
+    cur = _json.loads(rows[0][0])
+    cur["saved_at"] = rows[0][1].isoformat()
+    if len(rows) > 1:
+        prev = _json.loads(rows[1][0])
+        cur["prev_totals"] = prev.get("totals", {})
+        cur["prev_saved_at"] = rows[1][1].isoformat()
+    return cur
+
+
 @app.get("/api/calendar")
 def api_calendar():
     try:

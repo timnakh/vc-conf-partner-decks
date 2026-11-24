@@ -71,6 +71,16 @@
     .prog-n { font-size: 13px; font-weight: 600; white-space: nowrap; }
     .prog-n .left { color: #c2410c; }
     .prog-n .done { color: #166534; }
+    .st-top { display:flex; gap:22px; flex-wrap:wrap; margin:4px 0 12px; }
+    .st-top div { min-width:110px; }
+    .st-top b { display:block; font-size:24px; letter-spacing:-.03em; }
+    .st-top small { color:var(--muted); font-size:12px; }
+    .st-top .delta { color:#166534; font-size:12px; font-weight:600; }
+    .st-tbl { overflow-x:auto; }
+    .st-tbl table { border-collapse:collapse; font-size:13px; width:100%; min-width:720px; }
+    .st-tbl th, .st-tbl td { border-bottom:1px solid #f1e4c8; padding:6px 8px; text-align:right; white-space:nowrap; }
+    .st-tbl th:first-child, .st-tbl td:first-child, .st-tbl th:nth-child(2), .st-tbl td:nth-child(2) { text-align:left; }
+    .st-tbl tr.zero td { color:#94a3b8; }
   </style>
 </head>
 <body>
@@ -78,6 +88,7 @@
 <main>
   <h1>Календарь медиапартнёров</h1>
   <p class="lead">Цвет плашки — партнёр. ✓ вышел, ⏰ напомнили, ⚠ просрочено. Черновик — жёлтый пунктир.</p>
+  <section id="mp-stats" style="margin:0 0 14px"><h2>Результаты МП</h2><p class="hint">загружаю…</p></section>
   <div class="row">
     <button type="button" class="ghost" data-view="dayGridMonth">Месяц</button>
     <button type="button" class="ghost" data-view="dayGridWeek">Неделя</button>
@@ -508,6 +519,26 @@ document.getElementById("btn-add").onclick = async () => {
     document.getElementById("msg").innerHTML = "<span class='err'>"+esc(err.message)+"</span>";
   }
 };
+async function loadStats() {
+  const box = document.getElementById("mp-stats");
+  try {
+    const d = await j("/api/calendar/stats");
+    if (d.empty) { box.innerHTML = "<h2>Результаты МП</h2><p class='hint'>Ещё нет данных: их присылает утренняя сверка.</p>"; return; }
+    const t = d.totals || {}, p = d.prev_totals || {};
+    const delta = (k) => { const v = (t[k]||0) - (p[k]||0); return d.prev_totals && v ? `<span class="delta">+${v}</span>` : ""; };
+    const cell = (k, label) => `<div><b>${t[k] ?? 0} ${delta(k)}</b><small>${label}</small></div>`;
+    const rows = (d.rows || []).map(r => `<tr class="${(r.regs||0)+(r.sales||0) ? "" : "zero"}"><td>?${esc(String(r.ref))}</td><td>${esc(r.partner||"")}</td><td>${r.published ?? ""}</td><td>${r.regs||0}</td><td>${r.startups||0}</td><td>${r.investors||0}</td><td>${r.approved_investors||0}</td><td>${r.sales||0}</td><td>${r.revenue ? esc(String(r.revenue)) : ""}</td><td>${esc(r.last_reg||"")}</td></tr>`).join("");
+    const notes = (d.notes || []).map(n => `<li>${esc(n)}</li>`).join("");
+    const when = (d.updated_at || d.saved_at || "").replace("T"," ").slice(0,16);
+    box.innerHTML = `<h2>Результаты МП <span class="hint">· обновлено ${esc(when)}${d.prev_saved_at ? " · прирост к прошлой сверке" : ""}</span></h2>
+      <div class="st-top">${cell("regs","регистраций по ссылкам МП")}${cell("investors","из них инвесторы")}${cell("approved_investors","одобренные инвесторы (website)")}${cell("sales","продаж")}${t.revenue ? `<div><b>${esc(String(t.revenue))}</b><small>выручка</small></div>` : ""}</div>
+      <div class="st-tbl"><table><thead><tr><th>Ref</th><th>Партнёр</th><th>Выходов</th><th>Регов</th><th>Стартапы</th><th>Инвесторы</th><th>Одобр. инв.</th><th>Продажи</th><th>Выручка</th><th>Последняя рег.</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${notes ? `<ul class="hint">${notes}</ul>` : ""}`;
+  } catch (err) {
+    box.innerHTML = "<h2>Результаты МП</h2><p class='err'>"+esc(err.message)+"</p>";
+  }
+}
+loadStats();
 load().catch(err => { document.getElementById("msg").innerHTML = "<span class='err'>"+esc(err.message)+"</span>"; });
 </script>
 </body>

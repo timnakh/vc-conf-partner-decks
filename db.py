@@ -84,6 +84,12 @@ CREATE TABLE IF NOT EXISTS telegram_wait (
   token TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS mp_stats (
+  id SERIAL PRIMARY KEY,
+  payload TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 """
 
 _POOL = None
