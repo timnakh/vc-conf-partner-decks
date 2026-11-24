@@ -40,7 +40,7 @@ def _fetch() -> dict:
     out: dict[str, dict] = {}
     for row in client.run_report(req).rows:
         page = row.dimension_values[0].value or ""
-        m = re.search(r"\?(?:[^#]*&)?(\d{1,5})(?:[&=#]|$)", page)
+        m = re.search(r"[?&]ref=(\d{1,5})(?:[&#]|$)", page) or re.search(r"\?(?:[^#]*&)?(\d{1,5})(?:[&=#]|$)", page)
         if not m:
             continue
         ref = m.group(1)
