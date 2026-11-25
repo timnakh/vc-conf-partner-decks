@@ -541,7 +541,7 @@ async function loadStats() {
     const notes = (d.notes || []).map(n => `<li>${esc(n)}</li>`).join("");
     const when = (d.updated_at || d.saved_at || "").replace("T"," ").slice(0,16);
     const gaNote = d.ga && !d.ga.ok ? `<p class="err">GA: ${esc(d.ga.error)}</p>` : (hasVisits ? "" : `<p class="hint">Визиты из Google Analytics появятся после подключения GA4.</p>`);
-    box.innerHTML = `<h2>Результаты МП <span class="hint">· обновлено ${esc(when)}${d.prev_saved_at ? " · стрелки — прирост к прошлой сверке" : ""}</span></h2>
+    box.innerHTML = `<h2>Результаты МП <span class="hint">· ${d.crm_live ? "МП и выходы — живые из CRM и календаря; регистрации и продажи — сверка " : "обновлено "}${esc(when)}${d.prev_saved_at ? " · стрелки — прирост к прошлой сверке" : ""}</span></h2>${d.crm_error ? `<p class="err">CRM: ${esc(d.crm_error)}</p>` : ""}
       <div class="st-metrics">
         ${"mp_confirmed" in t ? card("mp_confirmed","МП согласовано") : ""}
         ${"mp_interested" in t ? card("mp_interested","МП заинтересовано") : ""}

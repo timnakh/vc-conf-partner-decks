@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import os
+import re
 import secrets
 import tempfile
 import threading
@@ -1334,6 +1335,30 @@ def calendar_stats():
             tot += s
         cur.setdefault("totals", {})["visits"] = tot
         cur["ga"] = {"ok": not ga.last_error(), "error": ga.last_error()}
+    # live: publications done, from our own calendar
+    try:
+        with db.connect() as conn:
+            pubs = conn.execute(
+                "SELECT p.reg_url, count(*) FROM publication pub JOIN partner p ON p.id = pub.partner_id "
+                "WHERE pub.status = 'published' GROUP BY p.reg_url").fetchall()
+        by_ref = {}
+        for url, n in pubs:
+            m = re.search(r"\?(\d+)", url or "")
+            if m:
+                by_ref[m.group(1)] = by_ref.get(m.group(1), 0) + n
+        for r in cur.get("rows", []):
+            r["published"] = by_ref.get(str(r.get("ref")), 0)
+        cur.setdefault("totals", {})["published"] = sum(by_ref.values())
+    except Exception:
+        pass
+    # live: MP counts from the CRM
+    import crm_live
+    counts = crm_live.mp_counts()
+    if counts:
+        cur.setdefault("totals", {}).update(counts)
+        cur["crm_live"] = True
+    elif crm_live.configured():
+        cur["crm_error"] = crm_live.last_error()
     if len(rows) > 1:
         prev = _json.loads(rows[1][0])
         cur["prev_totals"] = prev.get("totals", {})
