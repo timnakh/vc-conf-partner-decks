@@ -400,11 +400,20 @@ async def fill_one(
 
 
 @app.get("/fill/{fill_id}/download")
-def fill_download(fill_id: str):
+def fill_download(fill_id: str, kind: str = ""):
     item = FILLS.get(fill_id)
     if not item:
         raise HTTPException(404, "превью уже не доступно — собери ещё раз")
     files = item.get("files") or []
+    if kind:
+        one = next((b for b in files if b.get("kind") == kind), None)
+        if not one:
+            raise HTTPException(404, "такого постера нет в сборке")
+        return Response(
+            item_payload(one),
+            media_type=one.get("content_type") or "image/png",
+            headers={"Content-Disposition": _disposition(one["filename"])},
+        )
     if files:
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -1436,6 +1445,38 @@ def api_add_partner(body: PartnerIn):
     if saved.get("conflict"):
         return JSONResponse(saved, status_code=409)
     return saved
+
+
+POSTER_FIELDS = {"portrait": "poster_url", "square": "poster_square_url", "banner": "poster_banner_url"}
+
+
+@app.get("/api/partners/{pid}/poster/{kind}")
+def api_partner_poster(pid: int, kind: str):
+    """Download one saved poster of a partner as a file (proxied, so the browser saves it)."""
+    import urllib.request
+
+    field = POSTER_FIELDS.get(kind)
+    if not field:
+        raise HTTPException(404, "kind: portrait, square или banner")
+    try:
+        p = partners.get_partner(pid)
+    except Exception as e:
+        raise HTTPException(404, str(e)) from e
+    url = (p or {}).get(field) or ""
+    if not url:
+        raise HTTPException(404, "у партнёра нет этого постера — пересобери материалы")
+    last = None
+    for _ in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as r:
+                data = r.read()
+            break
+        except Exception as e:
+            last = e
+    else:
+        raise HTTPException(502, f"хранилище не ответило: {last}")
+    name = Path(url.split("?")[0]).name or f"{kind}.png"
+    return Response(data, media_type="image/png", headers={"Content-Disposition": _disposition(name)})
 
 
 @app.get("/api/partners/{pid}")

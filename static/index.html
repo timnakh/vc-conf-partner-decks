@@ -381,7 +381,10 @@
           </div>
           <p class="meta-line" id="p-one-track"></p>
           <div class="actions">
-            <button type="button" id="p-one-download">Скачать PNG</button>
+            <button type="button" id="p-one-download">Скачать все PNG</button>
+            <button type="button" class="ghost p-one-kind" data-kind="portrait">Вертикальный</button>
+            <button type="button" class="ghost p-one-kind" data-kind="square">Квадрат</button>
+            <button type="button" class="ghost p-one-kind" data-kind="banner">Баннер</button>
             <button type="button" class="ghost" id="p-one-share">Сделать ссылку</button>
             <button type="button" class="ghost" id="p-notion">Сохранить и создать</button>
           </div>
@@ -966,6 +969,15 @@
       }
       downloadBlob(await res.blob(), filenameFrom(res, "poster.png"));
     });
+    document.querySelectorAll(".p-one-kind").forEach(b => b.addEventListener("click", async () => {
+      if (!posterOneId) return;
+      const res = await fetch("/fill/" + posterOneId + "/download?kind=" + b.dataset.kind);
+      if (!res.ok) {
+        document.getElementById("p-one-err").textContent = await errorText(res);
+        return;
+      }
+      downloadBlob(await res.blob(), filenameFrom(res, b.dataset.kind + ".png"));
+    }));
     document.getElementById("p-notion").addEventListener("click", async () => {
       if (!posterOneId) return;
       const err = document.getElementById("p-one-err");

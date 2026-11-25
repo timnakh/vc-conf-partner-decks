@@ -54,6 +54,7 @@
   <h1 id="title">Партнёр</h1>
   <p class="hint" id="status"></p>
   <p><a id="kit-edit" href="/materials">Редактировать материалы</a></p>
+  <p id="poster-dl" class="hint"></p>
   <div id="err" class="err"></div>
   <section>
     <h2>Карточка</h2>
@@ -149,6 +150,10 @@
   function render(p) {
     document.getElementById("title").textContent = p.company;
     document.getElementById("kit-edit").href = "/materials?p=" + p.id;
+    const dl = [["portrait","poster_url","Вертикальный"],["square","poster_square_url","Квадрат"],["banner","poster_banner_url","Баннер"]]
+      .filter(x => p[x[1]])
+      .map(x => `<a href="/api/partners/${p.id}/poster/${x[0]}" download>${x[2]}</a>`);
+    document.getElementById("poster-dl").innerHTML = dl.length ? "Скачать постер: " + dl.join(" · ") : "";
     const ticks = (p.publications || []).map(x => x.status);
     document.getElementById("status").innerHTML =
       `<span class="badge ${p.confirmed ? "on" : ""}">${esc(p.status)}</span>` +
