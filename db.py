@@ -123,6 +123,8 @@ def _pool():
         max_size=4,
         timeout=60,
         max_waiting=8,
+        max_idle=120,
+        check=ConnectionPool.check_connection,
         kwargs={"connect_timeout": 20, "keepalives": 1, "keepalives_idle": 30},
         open=False,
     )
