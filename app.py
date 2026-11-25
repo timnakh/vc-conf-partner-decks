@@ -1468,7 +1468,8 @@ def api_partner_poster(pid: int, kind: str):
     last = None
     for _ in range(3):
         try:
-            with urllib.request.urlopen(url, timeout=60) as r:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (vc-conf-partner-decks)"})
+            with urllib.request.urlopen(req, timeout=60) as r:
                 data = r.read()
             break
         except Exception as e:
